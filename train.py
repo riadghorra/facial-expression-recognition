@@ -2,7 +2,7 @@ import torch.utils.data
 import pandas as pd
 import torch.optim as optim
 import torch.nn as nn
-from dataset_tools import pixelstring_to_torchtensor, label_to_vector, pixelstring_to_tensor_vgg16, \
+from dataset_tools import pixelstring_to_torchtensor_feedforward, label_to_vector, pixelstring_to_tensor_vgg16, \
     create_datatensor_vgg16, create_datatensor_feedforward
 from tqdm import tqdm
 from classifier import FeedForwardNN, vgg16
@@ -13,25 +13,27 @@ from classifier import FeedForwardNN, vgg16
 # =============================================================================
 # Training parameters
 # =============================================================================
-
-
 path = "fer2013.csv"
-BATCH = 3
+BATCH = 64
 epochs = 25
 eval_rate = 0.3
-test_rate = 1
+test_rate = 0.1
 hidden_sizes = [256,128,64]
-sample = 10
+sample = 2000
 LR = 0.001
-loss_function = nn.BCELoss()
-DEVICE = torch.device('cpu')
-softmax = nn.Softmax(dim=1)
-
+if torch.cuda.is_available():
+    DEVICE = torch.device('cuda')
+    print('Initialisation de cuda')
+    torch.cuda.init()
+else:
+    print('Mode CPU')
+    DEVICE = torch.device('cpu')
+softmax = nn.Softmax(dim=1).to(DEVICE)
+loss_function = nn.BCELoss().to(DEVICE)
 
 # =============================================================================
 # Train
 # =============================================================================
-
 
 def train(model, train_dataframe, test_dataframe, epochs, device, create_datatensor):
     optimizer = optim.Adam(model.parameters() , lr=LR)
@@ -45,8 +47,8 @@ def train(model, train_dataframe, test_dataframe, epochs, device, create_dataten
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for batch, groundtruth in dataloader :
             model.zero_grad()
-            out = softmax(model(batch))
-            labels = torch.tensor(groundtruth)
+            out = softmax(model(batch.to(DEVICE)))
+            labels = torch.tensor(groundtruth).to(DEVICE)
             loss = loss_function(out,labels)
             loss.backward()
             optimizer.step()
@@ -67,10 +69,10 @@ def train(model, train_dataframe, test_dataframe, epochs, device, create_dataten
 def evaluate(model, dataframe, create_datatensor):
     with torch.no_grad():
         data = create_datatensor(dataframe)
-        out = softmax(model(data))
-        labels = torch.tensor([])
+        out = softmax(model(data.to(DEVICE)))
+        labels = torch.tensor([]).to(DEVICE)
         for tensor in dataframe["groundtruth"]:
-            labels = torch.cat((labels, tensor.unsqueeze(0)))
+            labels = torch.cat((labels, tensor.unsqueeze(0))).to(DEVICE)
         loss_value = loss_function(out,labels)
         acc = sum(sum(out*labels))/(data.size()[0])
         return acc, loss_value
@@ -85,7 +87,7 @@ def main(model, pixelstring_to_tensor, create_datatensor):
     print("creation du dataset")
     all_data = pd.read_csv(path, header = 0)[:sample]
     all_data["tensors"] = all_data["pixels"].apply(pixelstring_to_tensor)
-    all_data["groundtruth"] = all_data["emotion"].apply(label_to_vector)
+    all_data["groundtruth"] = all_data["emotion"].apply(lambda x : label_to_vector(x, device = DEVICE))
     n_all = len(all_data)
     n_eval = int(eval_rate*n_all)
     n_test = int(test_rate*n_eval)
@@ -101,10 +103,11 @@ def main(model, pixelstring_to_tensor, create_datatensor):
 
 
 def main_feedforward():
-    model = FeedForwardNN(n=48 * 48, hidden_sizes=hidden_sizes)
-    return main(model, lambda x: pixelstring_to_torchtensor(x, flatten=True), create_datatensor_feedforward)
+    model = FeedForwardNN(n=48 * 48, hidden_sizes=hidden_sizes, device = DEVICE)
+    return main(model, lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device = DEVICE), create_datatensor_feedforward)
 
 
 def main_vgg16():
-    model = vgg16()
-    return main(model, pixelstring_to_tensor_vgg16, create_datatensor_vgg16)
+    model = vgg16(DEVICE)
+    return main(model, lambda x: pixelstring_to_tensor_vgg16(x, device = torch.device('cpu')), create_datatensor_vgg16)     
+        
