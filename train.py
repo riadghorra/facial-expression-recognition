@@ -16,13 +16,13 @@ from classifier import FeedForwardNN, vgg16
 
 
 path = "fer2013.csv"
-BATCH = 100
+BATCH = 3
 epochs = 25
 eval_rate = 0.3
-test_rate = 0.1
+test_rate = 1
 hidden_sizes = [256,128,64]
-sample = 1000
-LR = 0.0001
+sample = 10
+LR = 0.001
 loss_function = nn.BCELoss()
 DEVICE = torch.device('cpu')
 softmax = nn.Softmax(dim=1)

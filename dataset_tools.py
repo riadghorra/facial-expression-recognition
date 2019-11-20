@@ -15,7 +15,7 @@ def pixelstring_to_numpy(string, flatten = False):
     out = np.zeros((size,size))
     for i in range(size):
         out[i] = np.array([int(k) for k in pixels[size*i:size*(i+1)]])
-    return out
+    return out/255.0
 
 
 def pixelstring_to_torchtensor(string, datatype = torch.uint8, flatten = False ):
@@ -27,9 +27,9 @@ def pixelstring_to_tensor_vgg16(pixels):
     img = string_to_pilimage(pixels).resize((224, 224))
     # input needs to have 3 channels
     tensor = transforms.ToTensor()(img).repeat((3, 1, 1))
+    tensor = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(tensor)
 
     # TODO: rescale image pixels to range of [0, 1] then normalise with
-    #  transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     #  source: https://pytorch.org/docs/stable/torchvision/models.html
 
     return tensor
@@ -48,7 +48,7 @@ def tensor_to_pilimage(tensor, resolution = (256,256)):
 
 
 def create_datatensor_feedforward(dataset, sample = None):
-    out = torch.tensor([], dtype = torch.uint8)
+    out = torch.tensor([], dtype = torch.float32)
     for tensor in dataset["tensors"][:sample]:
         out = torch.cat((out, tensor.unsqueeze(0)))
     return out

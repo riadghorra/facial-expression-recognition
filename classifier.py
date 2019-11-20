@@ -31,7 +31,7 @@ def vgg16():
         param.require_grad = False
 
     for param in vgg16.classifier.parameters():
-        param.require_grad = False
+        param.require_grad = True
 
     # replace last layer
     vgg16.classifier[6] = nn.Linear(in_features=4096, out_features=7, bias=True)
