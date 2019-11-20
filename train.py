@@ -63,14 +63,16 @@ def train(model, train_dataframe, test_dataframe, epochs, device, create_dataten
             loss.backward()
             optimizer.step()
         model.eval()
-        acctrain, loss_train = evaluate(model, train_dataframe, create_datatensor)
-        acc, loss_test = evaluate(model, test_dataframe, create_datatensor)
+        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, create_datatensor)
+        proba, loss_test, acc = evaluate(model, test_dataframe, create_datatensor)
         model.train()
         print()
         print("Epoch number : ", epoch+1)
         print("Accuracy sur le test : ", round(100*float(acc),2), "%")
+        print("Proba sur le test : ", round(100*float(proba),2), "%")
         print("Loss test : ", float(loss_test))
-        print("Accuracy sur le train: ", round(100*float(acctrain),2), "%")
+        print("Accuracy sur le train : ", round(100*float(acctrain),2), "%")
+        print("Proba sur le train: ", round(100*float(probatrain),2), "%")
         print("Loss train : ", float(loss_train))
         print("_______________")
     return model.eval()
@@ -82,6 +84,7 @@ def evaluate(model, dataframe, create_datatensor):
         loss = torch.tensor(0.0).to(DEVICE)
         compteur = torch.tensor(0.0).to(DEVICE)
         error = torch.tensor(0.0).to(DEVICE)
+        acc = torch.tensor(0.0).to(DEVICE)
         dataloader = torch.utils.data.DataLoader(to_dataloader, BATCH, shuffle=False, drop_last=False)
         for pixelstring_batch, emotions_batch in dataloader :
             groundtruth = emotion_batch_totensor(emotions_batch)
@@ -92,9 +95,11 @@ def evaluate(model, dataframe, create_datatensor):
             loss += loss_function(out,labels)
             compteur += torch.tensor(1.0).to(DEVICE)
             error += (out*labels).sum()/torch.tensor(len(emotions_batch)).to(DEVICE)
+            acc += (out.argmax(1)==labels.argmax(1)).float().mean()
         loss_value = float(loss/compteur)
-        error = float(error/compteur)
-        return error, loss_value
+        proba = float(error/compteur)
+        acc = float(acc/compteur)
+        return proba, loss_value, acc
         
 # =============================================================================
 # Main
