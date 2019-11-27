@@ -33,10 +33,19 @@ def pixelstring_to_tensor_vgg16(pixels, device = torch.device('cpu')):
     tensor = transforms.ToTensor()(img).repeat((3, 1, 1))
     tensor = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(tensor).to(device)
 
-    # TODO: rescale image pixels to range of [0, 1] then normalise with
-    #  source: https://pytorch.org/docs/stable/torchvision/models.html
-
     return tensor
+
+def pixelstring_to_tensor_customvgg(pixels, device):
+    return torch.tensor(pixelstring_to_numpy(pixels, flatten = False), dtype = torch.float32).unsqueeze_(0).to(device)
+
+def pixelstring_batch_totensor(psb, pixelstring_to_tensor):
+    out = torch.stack(tuple([pixelstring_to_tensor(string) for string in psb]))
+    return out
+
+def emotion_batch_totensor(emb):
+    out = torch.stack(tuple([label_to_vector(em) for em in emb]))
+    return out
+
     
 
 # =============================================================================

@@ -1,0 +1,11 @@
+{
+"path" : "fer2013.csv",
+"BATCH" : 3,
+"epochs" : 25,
+"eval_rate" : 0.3,
+"test_rate" : 1,
+"hidden_sizes" : [256,128,64],
+"sample" : 10,
+"LR" : 0.001,
+"cats" : 7
+}
