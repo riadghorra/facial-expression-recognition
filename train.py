@@ -2,10 +2,11 @@ import torch.utils.data
 import pandas as pd
 import torch.optim as optim
 import torch.nn as nn
-from dataset_tools import pixelstring_to_torchtensor_feedforward, label_to_vector, pixelstring_to_tensor_vgg16, \
-    create_datatensor_vgg16, create_datatensor_feedforward
+from dataset_tools import pixelstring_to_torchtensor_feedforward, pixelstring_to_tensor_vgg16, \
+                          pixelstring_batch_totensor, emotion_batch_totensor, pixelstring_to_tensor_customvgg
+import json
 from tqdm import tqdm
-from classifier import FeedForwardNN, vgg16
+from classifier import FeedForwardNN, vgg16, Custom_vgg
 
 """
 (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)
@@ -13,14 +14,9 @@ from classifier import FeedForwardNN, vgg16
 # =============================================================================
 # Training parameters
 # =============================================================================
-path = "fer2013.csv"
-BATCH = 64
-epochs = 25
-eval_rate = 0.3
-test_rate = 0.1
-hidden_sizes = [256,128,64]
-sample = 2000
-LR = 0.001
+with open('config.json') as json_file:
+    config = json.load(json_file)
+    
 if torch.cuda.is_available():
     DEVICE = torch.device('cuda')
     print('Initialisation de cuda')
@@ -31,30 +27,23 @@ else:
 softmax = nn.Softmax(dim=1).to(DEVICE)
 loss_function = nn.BCELoss().to(DEVICE)
 
+
 # =============================================================================
 # Train
 # =============================================================================
-def pixelstring_batch_totensor(psb):
-    out = torch.stack(tuple([pixelstring_to_tensor_vgg16(string) for string in psb]))
-    return out
-
-def emotion_batch_totensor(emb):
-    out = torch.stack(tuple([label_to_vector(em) for em in emb]))
-    return out
-
-def train(model, train_dataframe, test_dataframe, epochs, device, create_datatensor):
-    optimizer = optim.Adam(model.parameters() , lr=LR)
+def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to_tensor):
+    optimizer = optim.Adam(model.parameters() , lr=config["LR"])
     #train_data = create_datatensor(train_dataframe)
     
     to_dataloader = [[train_dataframe["pixels"][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
     
-    dataloader = torch.utils.data.DataLoader(to_dataloader, BATCH, shuffle=False, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=True)
     model.train()
     print("debut du training")
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader :
             groundtruth = emotion_batch_totensor(emotions_batch)
-            batch = pixelstring_batch_totensor(pixelstring_batch)
+            batch = pixelstring_batch_totensor(pixelstring_batch, pixelstring_to_tensor)
             
             model.zero_grad()
             out = softmax(model(batch.to(DEVICE)))
@@ -63,8 +52,8 @@ def train(model, train_dataframe, test_dataframe, epochs, device, create_dataten
             loss.backward()
             optimizer.step()
         model.eval()
-        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, create_datatensor)
-        proba, loss_test, acc = evaluate(model, test_dataframe, create_datatensor)
+        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, pixelstring_to_tensor)
+        proba, loss_test, acc = evaluate(model, test_dataframe, pixelstring_to_tensor)
         model.train()
         print()
         print("Epoch number : ", epoch+1)
@@ -78,17 +67,17 @@ def train(model, train_dataframe, test_dataframe, epochs, device, create_dataten
     return model.eval()
 
 
-def evaluate(model, dataframe, create_datatensor):
+def evaluate(model, dataframe, pixelstring_to_tensor):
     with torch.no_grad():
         to_dataloader = [[dataframe["pixels"][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
         loss = torch.tensor(0.0).to(DEVICE)
         compteur = torch.tensor(0.0).to(DEVICE)
         error = torch.tensor(0.0).to(DEVICE)
         acc = torch.tensor(0.0).to(DEVICE)
-        dataloader = torch.utils.data.DataLoader(to_dataloader, BATCH, shuffle=False, drop_last=False)
+        dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
         for pixelstring_batch, emotions_batch in dataloader :
             groundtruth = emotion_batch_totensor(emotions_batch)
-            batch = pixelstring_batch_totensor(pixelstring_batch)
+            batch = pixelstring_batch_totensor(pixelstring_batch, pixelstring_to_tensor)
             
             out = softmax(model(batch.to(DEVICE)))
             labels = groundtruth.to(DEVICE)
@@ -106,31 +95,35 @@ def evaluate(model, dataframe, create_datatensor):
 # =============================================================================
 
     
-def main(model, pixelstring_to_tensor, create_datatensor):
+def main(model, pixelstring_to_tensor):
     print("creation du dataset")
-    all_data = pd.read_csv(path, header = 0)[:sample]
+    all_data = pd.read_csv(config["path"], header = 0)[:config["sample"]]
     #all_data["tensors"] = all_data["pixels"].apply(pixelstring_to_tensor)
     #all_data["groundtruth"] = all_data["emotion"].apply(lambda x : label_to_vector(x, device = DEVICE))
     n_all = len(all_data)
-    n_eval = int(eval_rate*n_all)
-    n_test = int(test_rate*n_eval)
+    n_eval = int(config["eval_rate"]*n_all)
+    n_test = int(config["test_rate"]*n_eval)
     
     train_dataframe = all_data[n_eval:].reset_index(drop=True)
     eval_dataframe = all_data[:n_eval]
     test_dataframe = eval_dataframe[:n_test]
 
-    model = train(model, train_dataframe, test_dataframe, epochs, DEVICE, create_datatensor)
-    acc, loss_eval = evaluate(model, eval_dataframe, create_datatensor)
+    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, pixelstring_to_tensor)
+    proba, acc, loss_eval = evaluate(model, eval_dataframe, pixelstring_to_tensor)
     
-    return model, acc, loss_eval
+    return model, acc, loss_eval, proba
 
 
 def main_feedforward():
-    model = FeedForwardNN(n=48 * 48, hidden_sizes=hidden_sizes, device = DEVICE)
-    return main(model, lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device = DEVICE), create_datatensor_feedforward)
+    model = FeedForwardNN(n=48 * 48, hidden_sizes=config["hidden_sizes"], device = DEVICE)
+    return main(model, lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device = DEVICE))
 
 
 def main_vgg16():
     model = vgg16(DEVICE)
-    return main(model, lambda x: pixelstring_to_tensor_vgg16(x, device = torch.device('cpu')), create_datatensor_vgg16)     
+    return main(model, lambda x: pixelstring_to_tensor_vgg16(x, device = torch.device('cpu')))  
+
+def main_custom_vgg():
+    model = Custom_vgg(1, config["cats"], DEVICE)
+    return main(model, lambda x : pixelstring_to_tensor_customvgg(x, DEVICE))
         

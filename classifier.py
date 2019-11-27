@@ -41,3 +41,40 @@ def vgg16(device=torch.device('cpu')):
     vgg16.classifier[6] = nn.Linear(in_features=4096, out_features=7, bias=True).to(device)
 
     return vgg16
+
+
+class Custom_vgg(nn.Module):
+    def __init__(self,in_channel, out_dim, device=torch.device('cpu')):
+        super(Custom_vgg, self).__init__()
+        self.device = device
+        self.convs1 = nn.Sequential(nn.Conv2d(in_channel,32, 3,padding=1),nn.ReLU(True),
+                                    nn.Conv2d(32,32, 3,padding=1), nn.ReLU(True)).to(self.device)
+        
+        self.pool1 = nn.MaxPool2d(2, stride=2).to(self.device)
+        self.convs2 = nn.Sequential(nn.Conv2d(32,64, 3,padding=1), nn.ReLU(True),
+                                    nn.Conv2d(64,64, 3,padding=1), nn.ReLU(True)).to(self.device)
+        
+        self.pool2 = nn.MaxPool2d(2, stride=2).to(self.device)
+        self.convs3 = nn.Sequential(nn.Conv2d(64,128, 3,padding=1), nn.ReLU(True), 
+                                    nn.Conv2d(128,128, 3,padding=1), nn.ReLU(True), 
+                                    nn.Conv2d(128,128, 3,padding=1), nn.ReLU(True)).to(self.device)
+        
+        self.pool3 =  nn.MaxPool2d(2, stride=2).to(self.device)
+        self.flat = torch.nn.Flatten().to(self.device)
+        self.FC512 = nn.Sequential(nn.Linear(4608, 512), nn.ReLU(True)).to(self.device)
+        self.FC256 = nn.Sequential(nn.Linear(512, 256), nn.ReLU(True)).to(self.device)
+        self.FCOUT = nn.Sequential(nn.Linear(256, 7)).to(self.device)
+    
+    def forward(self,x):
+        print(x.size())
+        x = self.convs1(x)
+        x = self.pool1(x)
+        x = self.convs2(x)
+        x = self.pool2(x)
+        x = self.convs3(x)
+        x = self.pool3(x)
+        x = self.flat(x)
+        x = self.FC512(x)
+        x = self.FC256(x)
+        x = self.FCOUT(x)
+        return x
