@@ -66,7 +66,6 @@ class Custom_vgg(nn.Module):
         self.FCOUT = nn.Sequential(nn.Linear(256, 7)).to(self.device)
     
     def forward(self,x):
-        print(x.size())
         x = self.convs1(x)
         x = self.pool1(x)
         x = self.convs2(x)
