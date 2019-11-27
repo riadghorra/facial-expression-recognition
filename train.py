@@ -111,7 +111,7 @@ def main(model, pixelstring_to_tensor):
     test_dataframe = eval_dataframe[:n_test]
 
     model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, pixelstring_to_tensor)
-    proba, acc, loss_eval = evaluate(model, eval_dataframe, pixelstring_to_tensor)
+    proba, loss_eval, acc = evaluate(model, eval_dataframe, pixelstring_to_tensor)
     
     return model, acc, loss_eval, proba
 
