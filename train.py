@@ -97,7 +97,9 @@ def evaluate(model, dataframe, pixelstring_to_tensor):
     
 def main(model, pixelstring_to_tensor):
     print("creation du dataset")
-    all_data = pd.read_csv(config["path"], header = 0)[:config["sample"]]
+    all_data = pd.read_csv(config["path"], header = 0)
+    if config["sample"]!=0:
+        all_data = all_data[:config["sample"]]
     #all_data["tensors"] = all_data["pixels"].apply(pixelstring_to_tensor)
     #all_data["groundtruth"] = all_data["emotion"].apply(lambda x : label_to_vector(x, device = DEVICE))
     n_all = len(all_data)

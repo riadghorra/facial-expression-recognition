@@ -77,3 +77,10 @@ class Custom_vgg(nn.Module):
         x = self.FC256(x)
         x = self.FCOUT(x)
         return x
+    
+    def readable_output(self, x, cats):
+        softmax = nn.Softmax(dim=1).to(self.device)
+        y = softmax(self.forward(x))
+        for i, cat in enumerate(cats):
+            print("Le visage appartient à la categorie {} à {}%".format(cat, round(float(100*y[i]),2)))
+        
