@@ -41,6 +41,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
     dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=True)
     model.train()
     print("debut du training")
+    best_loss = torch.tenso(10000).to(DEVICE)
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader :
             groundtruth = emotion_batch_totensor(emotions_batch)
@@ -55,6 +56,8 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
         model.eval()
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, pixelstring_to_tensor)
         proba, loss_test, acc = evaluate(model, test_dataframe, pixelstring_to_tensor)
+        if loss_train < best_loss:
+            torch.save(model.state_dict(), "current_best_model")
         model.train()
         print()
         print("Epoch number : ", epoch+1)
