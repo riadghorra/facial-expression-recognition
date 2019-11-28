@@ -7,5 +7,8 @@
 "hidden_sizes" : [256,128,64],
 "sample" : 10,
 "LR" : 0.001,
-"cats" : 7
+"cats" : 7,
+"path_images" : "test.jpeg",
+"catslist" : ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"],
+"resolution" : [48,48]
 }

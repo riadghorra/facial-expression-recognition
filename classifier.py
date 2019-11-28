@@ -63,7 +63,7 @@ class Custom_vgg(nn.Module):
         self.flat = torch.nn.Flatten().to(self.device)
         self.FC512 = nn.Sequential(nn.Linear(4608, 512), nn.ReLU(True)).to(self.device)
         self.FC256 = nn.Sequential(nn.Linear(512, 256), nn.ReLU(True)).to(self.device)
-        self.FCOUT = nn.Sequential(nn.Linear(256, 7)).to(self.device)
+        self.FCOUT = nn.Sequential(nn.Linear(256, out_dim)).to(self.device)
     
     def forward(self,x):
         x = self.convs1(x)
