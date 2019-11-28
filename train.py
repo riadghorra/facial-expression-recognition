@@ -117,7 +117,7 @@ def main(model, pixelstring_to_tensor):
     d = train_dataframe.groupby("emotion")["pixels"].count().values
     d = d/(sum(d))
     d = 1/d
-    weight = torch.tensor(d).to(DEVICE)
+    weight = torch.FloatTensor(d).to(DEVICE)
     print("Weights :",d)
     loss_function = nn.BCELoss(weight=weight).to(DEVICE)
     #train
