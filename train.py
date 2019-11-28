@@ -41,7 +41,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
     dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=True)
     model.train()
     print("debut du training")
-    best_loss = torch.tenso(10000).to(DEVICE)
+    best_loss = torch.tensor(10000).to(DEVICE)
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader :
             groundtruth = emotion_batch_totensor(emotions_batch)
