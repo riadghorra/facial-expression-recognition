@@ -11,7 +11,7 @@ emotions = 7
 # =============================================================================
 
 
-def pixelstring_to_numpy(string, flatten = False):
+def pixelstring_to_numpy(string, flatten = False, integer_pixels=False):
     pixels = string.split()
     if flatten :
         out = np.array([int(i) for i in pixels])
@@ -19,6 +19,10 @@ def pixelstring_to_numpy(string, flatten = False):
     out = np.zeros((size,size))
     for i in range(size):
         out[i] = np.array([int(k) for k in pixels[size*i:size*(i+1)]])
+
+    if integer_pixels:
+        return out
+
     return out/255.0
 
 
@@ -83,7 +87,7 @@ def label_to_vector(label, device = torch.device('cpu')):
 # =============================================================================
 
 def string_to_pilimage(pixelstring):
-    imarray = pixelstring_to_numpy(pixelstring)
+    imarray = pixelstring_to_numpy(pixelstring, integer_pixels=True)
     out = pl.Image.fromarray(imarray).convert("L")
     return out
 
