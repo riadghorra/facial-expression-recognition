@@ -11,6 +11,7 @@ from classifier import FeedForwardNN, vgg16, Custom_vgg
 """
 (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)
 """
+
 # =============================================================================
 # Training parameters
 # =============================================================================
@@ -25,13 +26,13 @@ else:
     print('Mode CPU')
     DEVICE = torch.device('cpu')
 softmax = nn.Softmax(dim=1).to(DEVICE)
-loss_function = nn.BCELoss().to(DEVICE)
+
 
 
 # =============================================================================
 # Train
 # =============================================================================
-def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to_tensor):
+def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to_tensor, loss_function):
     optimizer = optim.Adam(model.parameters() , lr=config["LR"])
     #train_data = create_datatensor(train_dataframe)
     
@@ -40,6 +41,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
     dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=True)
     model.train()
     print("debut du training")
+    best_loss = torch.tensor(10000).to(DEVICE)
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader :
             groundtruth = emotion_batch_totensor(emotions_batch)
@@ -52,8 +54,10 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
             loss.backward()
             optimizer.step()
         model.eval()
-        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, pixelstring_to_tensor)
-        proba, loss_test, acc = evaluate(model, test_dataframe, pixelstring_to_tensor)
+        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, pixelstring_to_tensor, loss_function)
+        proba, loss_test, acc = evaluate(model, test_dataframe, pixelstring_to_tensor, loss_function)
+        if loss_train < best_loss:
+            torch.save(model.state_dict(), "current_best_model")
         model.train()
         print()
         print("Epoch number : ", epoch+1)
@@ -67,7 +71,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
     return model.eval()
 
 
-def evaluate(model, dataframe, pixelstring_to_tensor):
+def evaluate(model, dataframe, pixelstring_to_tensor, loss_function):
     with torch.no_grad():
         to_dataloader = [[dataframe["pixels"][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
         loss = torch.tensor(0.0).to(DEVICE)
@@ -97,7 +101,9 @@ def evaluate(model, dataframe, pixelstring_to_tensor):
     
 def main(model, pixelstring_to_tensor):
     print("creation du dataset")
-    all_data = pd.read_csv(config["path"], header = 0)[:config["sample"]]
+    all_data = pd.read_csv(config["path"], header = 0)
+    if config["sample"]!=0:
+        all_data = all_data[:config["sample"]]
     #all_data["tensors"] = all_data["pixels"].apply(pixelstring_to_tensor)
     #all_data["groundtruth"] = all_data["emotion"].apply(lambda x : label_to_vector(x, device = DEVICE))
     n_all = len(all_data)
@@ -107,9 +113,16 @@ def main(model, pixelstring_to_tensor):
     train_dataframe = all_data[n_eval:].reset_index(drop=True)
     eval_dataframe = all_data[:n_eval]
     test_dataframe = eval_dataframe[:n_test]
-
-    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, pixelstring_to_tensor)
-    proba, acc, loss_eval = evaluate(model, eval_dataframe, pixelstring_to_tensor)
+    #weights for loss
+    d = train_dataframe.groupby("emotion")["pixels"].count().values
+    d = d/(sum(d))
+    d = 1/d
+    weight = torch.FloatTensor(d).to(DEVICE)
+    print("Weights :",d)
+    loss_function = nn.BCELoss(weight=weight).to(DEVICE)
+    #train
+    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, pixelstring_to_tensor, loss_function)
+    proba, loss_eval, acc = evaluate(model, eval_dataframe, pixelstring_to_tensor, loss_function)
     
     return model, acc, loss_eval, proba
 
