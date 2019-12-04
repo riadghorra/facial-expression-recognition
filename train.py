@@ -2,6 +2,7 @@ import torch.utils.data
 import pandas as pd
 import torch.optim as optim
 import torch.nn as nn
+import numpy as np
 from dataset_tools import pixelstring_to_torchtensor_feedforward, pixelstring_to_tensor_vgg16, \
                           pixelstring_batch_totensor, emotion_batch_totensor, pixelstring_to_tensor_customvgg
 import json
@@ -98,14 +99,27 @@ def evaluate(model, dataframe, pixelstring_to_tensor, loss_function):
 # Main
 # =============================================================================
 
+
+def get_weights_for_loss(train_dataframe):
+    d = train_dataframe.groupby("emotion")["pixels"].count().values
+    distinct_emotions = np.sort(train_dataframe["emotion"].unique())
+    d = d / (sum(d))
+    emotion_freq = 1 / d
+    emotion_freq_complete = [0] * config["cats"]
+
+    for emotion, frequency in zip(distinct_emotions, emotion_freq):
+        emotion_freq_complete[emotion] = frequency
+
+    weights = torch.FloatTensor(emotion_freq_complete).to(DEVICE)
+    print("Weights: ", emotion_freq_complete, "Emotions in training set: ", distinct_emotions)
+    return weights
+
     
 def main(model, pixelstring_to_tensor):
     print("creation du dataset")
     all_data = pd.read_csv(config["path"], header = 0)
-    if config["sample"]!=0:
+    if config["sample"] != 0:
         all_data = all_data[:config["sample"]]
-    #all_data["tensors"] = all_data["pixels"].apply(pixelstring_to_tensor)
-    #all_data["groundtruth"] = all_data["emotion"].apply(lambda x : label_to_vector(x, device = DEVICE))
     n_all = len(all_data)
     n_eval = int(config["eval_rate"]*n_all)
     n_test = int(config["test_rate"]*n_eval)
@@ -113,17 +127,15 @@ def main(model, pixelstring_to_tensor):
     train_dataframe = all_data[n_eval:].reset_index(drop=True)
     eval_dataframe = all_data[:n_eval]
     test_dataframe = eval_dataframe[:n_test]
-    #weights for loss
-    d = train_dataframe.groupby("emotion")["pixels"].count().values
-    d = d/(sum(d))
-    d = 1/d
-    weight = torch.FloatTensor(d).to(DEVICE)
-    print("Weights :",d)
+
+    # weights for loss
+    weight = get_weights_for_loss(train_dataframe)
     loss_function = nn.BCELoss(weight=weight).to(DEVICE)
-    #train
+
+    # train
     model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, pixelstring_to_tensor, loss_function)
     proba, loss_eval, acc = evaluate(model, eval_dataframe, pixelstring_to_tensor, loss_function)
-    
+
     return model, acc, loss_eval, proba
 
 
@@ -136,7 +148,8 @@ def main_vgg16():
     model = vgg16(DEVICE)
     return main(model, lambda x: pixelstring_to_tensor_vgg16(x, device = torch.device('cpu')))  
 
+
 def main_custom_vgg():
     model = Custom_vgg(1, config["cats"], DEVICE)
     return main(model, lambda x : pixelstring_to_tensor_customvgg(x, DEVICE))
-        
+
