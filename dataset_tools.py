@@ -96,3 +96,27 @@ def tensor_to_pilimage(tensor, resolution = (256,256)):
     im = transforms.ToPILImage()(tensor.unsqueeze_(0))
     im = transforms.Resize(resolution)(im)
     return im
+
+
+# =============================================================================
+# Pre-processing
+# =============================================================================
+def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE):
+    groundtruth = emotion_batch_totensor(emotions_batch)
+    batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_tensor_customvgg(x, DEVICE))
+
+    return batch, groundtruth
+
+
+def preprocess_batch_vgg16(pixelstring_batch, emotions_batch, DEVICE):
+    groundtruth = emotion_batch_totensor(emotions_batch)
+    batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_tensor_vgg16(x, device=DEVICE))
+
+    return batch, groundtruth
+
+
+def preprocess_batch_feed_forward(pixelstring_batch, emotions_batch, DEVICE):
+    groundtruth = emotion_batch_totensor(emotions_batch)
+    batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device=DEVICE))
+
+    return batch, groundtruth
