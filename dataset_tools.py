@@ -102,8 +102,22 @@ def tensor_to_pilimage(tensor, resolution = (256,256)):
 # Pre-processing
 # =============================================================================
 def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE):
+    pre_process = transforms.Compose([
+        # data augmentation
+        transforms.RandomHorizontalFlip(p=0.5),
+        # pre-processing
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])
+    ])
+
+    batch = torch.stack(
+        tuple([
+            pre_process(string_to_pilimage(string)) for string in pixelstring_batch
+        ])
+    )
+
     groundtruth = emotion_batch_totensor(emotions_batch)
-    batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_tensor_customvgg(x, DEVICE))
 
     return batch, groundtruth
 
