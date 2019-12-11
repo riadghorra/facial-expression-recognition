@@ -11,7 +11,7 @@ emotions = 7
 # =============================================================================
 
 
-def pixelstring_to_numpy(string, flatten = False):
+def pixelstring_to_numpy(string, flatten = False, integer_pixels=False):
     pixels = string.split()
     if flatten :
         out = np.array([int(i) for i in pixels])
@@ -19,6 +19,10 @@ def pixelstring_to_numpy(string, flatten = False):
     out = np.zeros((size,size))
     for i in range(size):
         out[i] = np.array([int(k) for k in pixels[size*i:size*(i+1)]])
+
+    if integer_pixels:
+        return out
+
     return out/255.0
 
 
@@ -83,7 +87,7 @@ def label_to_vector(label, device = torch.device('cpu')):
 # =============================================================================
 
 def string_to_pilimage(pixelstring):
-    imarray = pixelstring_to_numpy(pixelstring)
+    imarray = pixelstring_to_numpy(pixelstring, integer_pixels=True)
     out = pl.Image.fromarray(imarray).convert("L")
     return out
 
@@ -92,3 +96,46 @@ def tensor_to_pilimage(tensor, resolution = (256,256)):
     im = transforms.ToPILImage()(tensor.unsqueeze_(0))
     im = transforms.Resize(resolution)(im)
     return im
+
+
+# =============================================================================
+# Pre-processing
+# =============================================================================
+def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True):
+    transformations = [
+        # pre-processing
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5])
+    ]
+    if with_data_aug:
+        transformations = [
+            # data augmentation
+            transforms.RandomHorizontalFlip(p=0.5)
+        ] + transformations
+
+    pre_process = transforms.Compose(transformations)
+
+    batch = torch.stack(
+        tuple([
+            pre_process(string_to_pilimage(string)) for string in pixelstring_batch
+        ])
+    )
+
+    groundtruth = emotion_batch_totensor(emotions_batch)
+
+    return batch, groundtruth
+
+
+def preprocess_batch_vgg16(pixelstring_batch, emotions_batch, DEVICE):
+    groundtruth = emotion_batch_totensor(emotions_batch)
+    batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_tensor_vgg16(x, device=DEVICE))
+
+    return batch, groundtruth
+
+
+def preprocess_batch_feed_forward(pixelstring_batch, emotions_batch, DEVICE):
+    groundtruth = emotion_batch_totensor(emotions_batch)
+    batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device=DEVICE))
+
+    return batch, groundtruth

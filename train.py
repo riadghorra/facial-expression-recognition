@@ -3,8 +3,7 @@ import pandas as pd
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-from dataset_tools import pixelstring_to_torchtensor_feedforward, pixelstring_to_tensor_vgg16, \
-                          pixelstring_batch_totensor, emotion_batch_totensor, pixelstring_to_tensor_customvgg
+from dataset_tools import preprocess_batch_custom_vgg, preprocess_batch_feed_forward, preprocess_batch_vgg16
 import json
 from tqdm import tqdm
 from classifier import FeedForwardNN, vgg16, Custom_vgg
@@ -29,14 +28,12 @@ else:
 softmax = nn.Softmax(dim=1).to(DEVICE)
 
 
-
 # =============================================================================
 # Train
 # =============================================================================
-def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to_tensor, loss_function):
-    optimizer = optim.Adam(model.parameters() , lr=config["LR"])
-    #train_data = create_datatensor(train_dataframe)
-    
+def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_batch, loss_function):
+    optimizer = optim.Adam(model.parameters(), lr=config["LR"])
+
     to_dataloader = [[train_dataframe["pixels"][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
     
     dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=True)
@@ -44,10 +41,8 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
     print("debut du training")
     best_loss = torch.tensor(10000).to(DEVICE)
     for epoch in tqdm(range(epochs), desc="Epochs"):
-        for pixelstring_batch, emotions_batch in dataloader :
-            groundtruth = emotion_batch_totensor(emotions_batch)
-            batch = pixelstring_batch_totensor(pixelstring_batch, pixelstring_to_tensor)
-            
+        for pixelstring_batch, emotions_batch in dataloader:
+            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
             model.zero_grad()
             out = softmax(model(batch.to(DEVICE)))
             labels = groundtruth.to(DEVICE)
@@ -55,8 +50,8 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
             loss.backward()
             optimizer.step()
         model.eval()
-        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, pixelstring_to_tensor, loss_function)
-        proba, loss_test, acc = evaluate(model, test_dataframe, pixelstring_to_tensor, loss_function)
+        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, loss_function, device)
+        proba, loss_test, acc = evaluate(model, test_dataframe, preprocess_batch, loss_function, device)
         if loss_train < best_loss:
             torch.save(model.state_dict(), "current_best_model")
         model.train()
@@ -72,7 +67,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, pixelstring_to
     return model.eval()
 
 
-def evaluate(model, dataframe, pixelstring_to_tensor, loss_function):
+def evaluate(model, dataframe, preprocess_batch, loss_function, DEVICE):
     with torch.no_grad():
         to_dataloader = [[dataframe["pixels"][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
         loss = torch.tensor(0.0).to(DEVICE)
@@ -80,10 +75,9 @@ def evaluate(model, dataframe, pixelstring_to_tensor, loss_function):
         error = torch.tensor(0.0).to(DEVICE)
         acc = torch.tensor(0.0).to(DEVICE)
         dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
-        for pixelstring_batch, emotions_batch in dataloader :
-            groundtruth = emotion_batch_totensor(emotions_batch)
-            batch = pixelstring_batch_totensor(pixelstring_batch, pixelstring_to_tensor)
-            
+        for pixelstring_batch, emotions_batch in dataloader:
+            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
+
             out = softmax(model(batch.to(DEVICE)))
             labels = groundtruth.to(DEVICE)
             loss += loss_function(out,labels)
@@ -115,7 +109,7 @@ def get_weights_for_loss(train_dataframe):
     return weights
 
     
-def main(model, pixelstring_to_tensor):
+def main(model, preprocess_batch):
     print("creation du dataset")
     all_data = pd.read_csv(config["path"], header = 0)
     if config["sample"] != 0:
@@ -133,23 +127,27 @@ def main(model, pixelstring_to_tensor):
     loss_function = nn.BCELoss(weight=weight).to(DEVICE)
 
     # train
-    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, pixelstring_to_tensor, loss_function)
-    proba, loss_eval, acc = evaluate(model, eval_dataframe, pixelstring_to_tensor, loss_function)
+    print("Starting model training with:")
+    print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
+    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, preprocess_batch, loss_function)
+    proba, loss_eval, acc = evaluate(model, eval_dataframe, preprocess_batch, loss_function, DEVICE)
 
     return model, acc, loss_eval, proba
 
 
 def main_feedforward():
     model = FeedForwardNN(n=48 * 48, hidden_sizes=config["hidden_sizes"], device = DEVICE)
-    return main(model, lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device = DEVICE))
+    return main(model, preprocess_batch_feed_forward)
 
 
 def main_vgg16():
     model = vgg16(DEVICE)
-    return main(model, lambda x: pixelstring_to_tensor_vgg16(x, device = torch.device('cpu')))  
+    return main(model, preprocess_batch_vgg16)
 
 
-def main_custom_vgg():
+def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
     model = Custom_vgg(1, config["cats"], DEVICE)
-    return main(model, lambda x : pixelstring_to_tensor_customvgg(x, DEVICE))
-
+    if start_from_best_model:
+        print("Loading model from current best model")
+        model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
+    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_data_aug))
