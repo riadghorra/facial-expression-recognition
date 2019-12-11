@@ -55,7 +55,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         model.eval()
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device)
         proba, loss_test, acc = evaluate(model, test_dataframe, preprocess_batch, weight, device)
-        if loss_train < best_loss:
+        if loss_test < best_loss:
             torch.save(model.state_dict(), "current_best_model")
         model.train()
         print()
