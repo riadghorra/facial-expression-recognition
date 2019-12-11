@@ -17,7 +17,7 @@ from classifier import FeedForwardNN, vgg16, Custom_vgg
 # =============================================================================
 with open('config.json') as json_file:
     config = json.load(json_file)
-    
+
 if torch.cuda.is_available():
     DEVICE = torch.device('cuda')
     print('Initialisation de cuda')
@@ -31,11 +31,11 @@ softmax = nn.Softmax(dim=1).to(DEVICE)
 # =============================================================================
 # Train
 # =============================================================================
-def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_batch, loss_function):
+def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_batch, weight):
     optimizer = optim.Adam(model.parameters(), lr=config["LR"])
 
     to_dataloader = [[train_dataframe["pixels"][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
-    
+
     dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=True)
     model.train()
     print("debut du training")
@@ -43,31 +43,34 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
+
+            loss_function = make_loss(emotions_batch, weight)
+
             model.zero_grad()
             out = softmax(model(batch.to(DEVICE)))
             labels = groundtruth.to(DEVICE)
-            loss = loss_function(out,labels)
+            loss = loss_function(out, labels)
             loss.backward()
             optimizer.step()
         model.eval()
-        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, loss_function, device)
-        proba, loss_test, acc = evaluate(model, test_dataframe, preprocess_batch, loss_function, device)
+        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device)
+        proba, loss_test, acc = evaluate(model, test_dataframe, preprocess_batch, weight, device)
         if loss_train < best_loss:
             torch.save(model.state_dict(), "current_best_model")
         model.train()
         print()
-        print("Epoch number : ", epoch+1)
-        print("Accuracy sur le test : ", round(100*float(acc),2), "%")
-        print("Proba sur le test : ", round(100*float(proba),2), "%")
+        print("Epoch number : ", epoch + 1)
+        print("Accuracy sur le test : ", round(100 * float(acc), 2), "%")
+        print("Proba sur le test : ", round(100 * float(proba), 2), "%")
         print("Loss test : ", float(loss_test))
-        print("Accuracy sur le train : ", round(100*float(acctrain),2), "%")
-        print("Proba sur le train: ", round(100*float(probatrain),2), "%")
+        print("Accuracy sur le train : ", round(100 * float(acctrain), 2), "%")
+        print("Proba sur le train: ", round(100 * float(probatrain), 2), "%")
         print("Loss train : ", float(loss_train))
         print("_______________")
     return model.eval()
 
 
-def evaluate(model, dataframe, preprocess_batch, loss_function, DEVICE):
+def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
     with torch.no_grad():
         to_dataloader = [[dataframe["pixels"][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
         loss = torch.tensor(0.0).to(DEVICE)
@@ -77,18 +80,20 @@ def evaluate(model, dataframe, preprocess_batch, loss_function, DEVICE):
         dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
+            loss_function = make_loss(emotions_batch, weight)
 
             out = softmax(model(batch.to(DEVICE)))
             labels = groundtruth.to(DEVICE)
-            loss += loss_function(out,labels)
+            loss += loss_function(out, labels)
             compteur += torch.tensor(1.0).to(DEVICE)
-            error += (out*labels).sum()/torch.tensor(len(emotions_batch)).to(DEVICE)
-            acc += (out.argmax(1)==labels.argmax(1)).float().mean()
-        loss_value = float(loss/compteur)
-        proba = float(error/compteur)
-        acc = float(acc/compteur)
+            error += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
+            acc += (out.argmax(1) == labels.argmax(1)).float().mean()
+        loss_value = float(loss / compteur)
+        proba = float(error / compteur)
+        acc = float(acc / compteur)
         return proba, loss_value, acc
-        
+
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -108,35 +113,43 @@ def get_weights_for_loss(train_dataframe):
     print("Weights: ", emotion_freq_complete, "Emotions in training set: ", distinct_emotions)
     return weights
 
-    
+
+def make_loss(emotions_batch, weights):
+    """
+    :param batch_ndim: if batch.size() is 64,1,48,48 batch_ndim is 4.
+    """
+    loss_weights = torch.FloatTensor([weights[label] for label in emotions_batch])
+    loss_weights = loss_weights.unsqueeze(1)
+    return nn.BCELoss(weight=loss_weights).to(DEVICE)
+
+
 def main(model, preprocess_batch):
     print("creation du dataset")
-    all_data = pd.read_csv(config["path"], header = 0)
+    all_data = pd.read_csv(config["path"], header=0)
     if config["sample"] != 0:
         all_data = all_data[:config["sample"]]
     n_all = len(all_data)
-    n_eval = int(config["eval_rate"]*n_all)
-    n_test = int(config["test_rate"]*n_eval)
-    
+    n_eval = int(config["eval_rate"] * n_all)
+    n_test = int(config["test_rate"] * n_eval)
+
     train_dataframe = all_data[n_eval:].reset_index(drop=True)
     eval_dataframe = all_data[:n_eval]
     test_dataframe = eval_dataframe[:n_test]
 
     # weights for loss
     weight = get_weights_for_loss(train_dataframe)
-    loss_function = nn.BCELoss(weight=weight).to(DEVICE)
 
     # train
     print("Starting model training with:")
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
-    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, preprocess_batch, loss_function)
-    proba, loss_eval, acc = evaluate(model, eval_dataframe, preprocess_batch, loss_function, DEVICE)
+    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, preprocess_batch, weight)
+    proba, loss_eval, acc = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE)
 
     return model, acc, loss_eval, proba
 
 
 def main_feedforward():
-    model = FeedForwardNN(n=48 * 48, hidden_sizes=config["hidden_sizes"], device = DEVICE)
+    model = FeedForwardNN(n=48 * 48, hidden_sizes=config["hidden_sizes"], device=DEVICE)
     return main(model, preprocess_batch_feed_forward)
 
 
@@ -150,4 +163,7 @@ def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
     if start_from_best_model:
         print("Loading model from current best model")
         model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
-    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_data_aug))
+    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_custom_vgg(pixelstring_batch,
+                                                                                                     emotions_batch,
+                                                                                                     DEVICE,
+                                                                                                     with_data_aug))
