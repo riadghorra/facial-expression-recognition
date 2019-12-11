@@ -101,15 +101,20 @@ def tensor_to_pilimage(tensor, resolution = (256,256)):
 # =============================================================================
 # Pre-processing
 # =============================================================================
-def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE):
-    pre_process = transforms.Compose([
-        # data augmentation
-        transforms.RandomHorizontalFlip(p=0.5),
+def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True):
+    transformations = [
         # pre-processing
         transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5], std=[0.5])
-    ])
+    ]
+    if with_data_aug:
+        transformations = [
+            # data augmentation
+            transforms.RandomHorizontalFlip(p=0.5)
+        ] + transformations
+
+    pre_process = transforms.Compose(transformations)
 
     batch = torch.stack(
         tuple([

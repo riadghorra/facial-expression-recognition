@@ -145,9 +145,9 @@ def main_vgg16():
     return main(model, preprocess_batch_vgg16)
 
 
-def main_custom_vgg(start_from_best_model=True):
+def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
     model = Custom_vgg(1, config["cats"], DEVICE)
     if start_from_best_model:
         print("Loading model from current best model")
         model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
-    return main(model, preprocess_batch_custom_vgg)
+    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_data_aug))
