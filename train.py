@@ -88,10 +88,11 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
             compteur += torch.tensor(1.0).to(DEVICE)
             if config["loss_mode"]=="BCE":
                 probasum += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
+                acc += (out.argmax(1) == labels.argmax(1)).float().mean()
             if config["loss_mode"]=="CE":
                 probas_batch = softmax(out)
                 probasum += torch.tensor([probas_batch[image_index][classe] for image_index, classe in enumerate(labels)]).sum()
-            acc += (out.argmax(1) == labels.argmax(1)).float().mean()
+                acc += (probas_batch.argmax(1) == labels).float().mean()
         loss_value = float(loss / compteur)
         proba = float(probasum / compteur)
         acc = float(acc / compteur)
