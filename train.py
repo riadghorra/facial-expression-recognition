@@ -75,7 +75,7 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
         to_dataloader = [[dataframe["pixels"][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
         loss = torch.tensor(0.0).to(DEVICE)
         compteur = torch.tensor(0.0).to(DEVICE)
-        error = torch.tensor(0.0).to(DEVICE)
+        probasum = torch.tensor(0.0).to(DEVICE)
         acc = torch.tensor(0.0).to(DEVICE)
         dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
         for pixelstring_batch, emotions_batch in dataloader:
@@ -86,10 +86,14 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
             labels = groundtruth.to(DEVICE)
             loss += loss_function(out, labels)
             compteur += torch.tensor(1.0).to(DEVICE)
-            error += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
+            if config["loss_mode"]=="BCE":
+                probasum += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
+            if config["loss_mode"]=="CE":
+                probas_batch = softmax(out)
+                probasum += torch.tensor([probas_batch[image_index][classe] for image_index, classe in enumerate(labels)]).sum()
             acc += (out.argmax(1) == labels.argmax(1)).float().mean()
         loss_value = float(loss / compteur)
-        proba = float(error / compteur)
+        proba = float(probasum / compteur)
         acc = float(acc / compteur)
         return proba, loss_value, acc
 
