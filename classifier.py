@@ -82,5 +82,9 @@ class Custom_vgg(nn.Module):
         softmax = nn.Softmax(dim=1).to(self.device)
         y = softmax(self.forward(x))[0]
         for i, cat in enumerate(cats):
-            print("Le visage appartient à la categorie {} à {}%".format(cat, round(float(100*y[i]),2)))
-        
+            print("Le visage appartient à la categorie {} à {}%".format(cat, round(float(100 * y[i]), 2)))
+
+    def predict_single(self, x):
+        softmax = nn.Softmax(dim=1).to(self.device)
+        y = softmax(self.forward(x))[0]
+        return [round(float(100*proba), 2) for proba in y]
