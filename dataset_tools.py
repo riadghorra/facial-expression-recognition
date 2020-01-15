@@ -46,8 +46,11 @@ def pixelstring_batch_totensor(psb, pixelstring_to_tensor):
     out = torch.stack(tuple([pixelstring_to_tensor(string) for string in psb]))
     return out
 
-def emotion_batch_totensor(emb):
-    out = torch.stack(tuple([label_to_vector(em) for em in emb]))
+def emotion_batch_totensor(emb, loss_mode = "BCE"):
+    if loss_mode == "BCE":
+        out = torch.stack(tuple([label_to_vector(em) for em in emb]))
+    else :
+        out = torch.tensor(emb)
     return out
 
     
@@ -101,7 +104,7 @@ def tensor_to_pilimage(tensor, resolution = (256,256)):
 # =============================================================================
 # Pre-processing
 # =============================================================================
-def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True):
+def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True, loss_mode = "BCE"):
     transformations = [
         # pre-processing
         transforms.Grayscale(num_output_channels=1),
@@ -122,7 +125,7 @@ def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_
         ])
     )
 
-    groundtruth = emotion_batch_totensor(emotions_batch)
+    groundtruth = emotion_batch_totensor(emotions_batch, loss_mode)
 
     return batch, groundtruth
 

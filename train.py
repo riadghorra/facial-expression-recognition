@@ -42,7 +42,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
     best_acc = 0
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader:
-            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
+            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device, config["loss_mode"])
 
             loss_function = make_loss(emotions_batch, weight)
 
@@ -79,7 +79,7 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
         acc = torch.tensor(0.0).to(DEVICE)
         dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
         for pixelstring_batch, emotions_batch in dataloader:
-            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
+            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE, config["loss_mode"])
             loss_function = make_loss(emotions_batch, weight)
 
             out = model(batch.to(DEVICE))
