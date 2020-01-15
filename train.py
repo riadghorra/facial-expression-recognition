@@ -33,7 +33,16 @@ softmax = nn.Softmax(dim=1).to(DEVICE)
 # =============================================================================
 def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_batch, weight):
     optimizer = optim.Adam(model.parameters(), lr=config["LR"])
-
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                     mode='min',
+                                                     factor=0.5,
+                                                     patience=3,
+                                                     verbose=True,
+                                                     threshold=0.0001,
+                                                     threshold_mode='rel',
+                                                     cooldown=0,
+                                                     min_lr=0,
+                                                     eps=1e-08)
     to_dataloader = [[train_dataframe["pixels"][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
 
     dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=True, drop_last=True)
@@ -54,6 +63,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
             optimizer.step()
         model.eval()
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device)
+        scheduler.step(loss_train)
         proba, loss_test, acc = evaluate(model, test_dataframe, preprocess_batch, weight, device)
         if acc > best_acc:
             torch.save(model.state_dict(), "current_best_model")
@@ -86,12 +96,14 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
             labels = groundtruth.to(DEVICE)
             loss += loss_function(out, labels)
             compteur += torch.tensor(1.0).to(DEVICE)
-            if config["loss_mode"]=="BCE":
+            if config["loss_mode"] == "BCE":
                 probasum += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
                 acc += (out.argmax(1) == labels.argmax(1)).float().mean()
-            if config["loss_mode"]=="CE":
+            if config["loss_mode"] == "CE":
                 probas_batch = softmax(out)
-                probasum += torch.tensor([probas_batch[image_index][classe] for image_index, classe in enumerate(labels)])/(len(labels)).sum().to(DEVICE)
+                probasum += (torch.tensor(
+                    [probas_batch[image_index][classe] for image_index, classe in enumerate(labels)]).sum() / float(
+                    len(labels))).to(DEVICE)
                 acc += (probas_batch.argmax(1) == labels).float().mean().to(DEVICE)
         loss_value = float(loss / compteur)
         proba = float(probasum / compteur)
@@ -123,13 +135,13 @@ def make_loss(emotions_batch, weights):
     """
     :param batch_ndim: if batch.size() is 64,1,48,48 batch_ndim is 4.
     """
-    assert config["loss_mode"] in ["CE","BCE"], "mode inconnu"
+    assert config["loss_mode"] in ["CE", "BCE"], "mode inconnu"
     if config["loss_mode"] == "BCE":
         loss_weights = torch.FloatTensor([weights[label] for label in emotions_batch])
         loss_weights = loss_weights.unsqueeze(1)
-        return lambda x : nn.BCELoss(weight=loss_weights).to(DEVICE)(softmax(x))
-    elif  config["loss_mode"] == "CE":
-        return nn.CrossEntropyLoss(weight = weights).to(DEVICE)
+        return lambda x: nn.BCELoss(weight=loss_weights).to(DEVICE)(softmax(x))
+    elif config["loss_mode"] == "CE":
+        return nn.CrossEntropyLoss(weight=weights).to(DEVICE)
 
 
 def main(model, preprocess_batch):
@@ -147,7 +159,7 @@ def main(model, preprocess_batch):
 
     # weights for loss
     weight = get_weights_for_loss(train_dataframe)
-    
+
     # train
     print("Starting model training with:")
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
@@ -176,6 +188,8 @@ def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
                                                                                                      emotions_batch,
                                                                                                      DEVICE,
                                                                                                      with_data_aug,
-                                                                                                     config["loss_mode"]))
+                                                                                                     config[
+                                                                                                         "loss_mode"]))
+
 
 main_custom_vgg(start_from_best_model=False, with_data_aug=True)
