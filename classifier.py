@@ -8,9 +8,9 @@ class FeedForwardNN(nn.Module):
         super(FeedForwardNN, self).__init__()
         self.device = device
         self.first_couche = nn.Sequential(nn.Linear(n, hidden_sizes[0]), nn.ReLU()).to(self.device)
-        self.hidden = [nn.Sequential(nn.Linear(hidden_sizes[i], hidden_sizes[i+1]), nn.ReLU()).to(self.device) for i in range(len(hidden_sizes)-1)]
-        self.last_couche = nn.Linear(hidden_sizes[-1],7).to(self.device)
-        
+        self.hidden = [nn.Sequential(nn.Linear(hidden_sizes[i], hidden_sizes[i + 1]), nn.ReLU()).to(self.device) for i
+                       in range(len(hidden_sizes) - 1)]
+        self.last_couche = nn.Linear(hidden_sizes[-1], 7).to(self.device)
 
     def forward(self, x):
         x = x.float()
@@ -43,29 +43,33 @@ def vgg16(device=torch.device('cpu')):
     return vgg16
 
 
+def Convblock(in_channel, out_channel, norm_layer=True):
+    return nn.Sequential(nn.Conv2d(in_channel, out_channel, 3, padding=1), nn.BatchNorm2d(out_channel), nn.ReLU(True))
+
+
 class Custom_vgg(nn.Module):
-    def __init__(self,in_channel, out_dim, device=torch.device('cpu')):
+    def __init__(self, in_channel, out_dim, device=torch.device('cpu')):
         super(Custom_vgg, self).__init__()
         self.device = device
-        self.convs1 = nn.Sequential(nn.Conv2d(in_channel,32, 3,padding=1),nn.ReLU(True),
-                                    nn.Conv2d(32,32, 3,padding=1), nn.ReLU(True)).to(self.device)
-        
+        self.convs1 = nn.Sequential(Convblock(in_channel, 32),
+                                    Convblock(32, 32)).to(self.device)
+
         self.pool1 = nn.MaxPool2d(2, stride=2).to(self.device)
-        self.convs2 = nn.Sequential(nn.Conv2d(32,64, 3,padding=1), nn.ReLU(True),
-                                    nn.Conv2d(64,64, 3,padding=1), nn.ReLU(True)).to(self.device)
-        
+        self.convs2 = nn.Sequential(Convblock(32, 64),
+                                    Convblock(64, 64)).to(self.device)
+
         self.pool2 = nn.MaxPool2d(2, stride=2).to(self.device)
-        self.convs3 = nn.Sequential(nn.Conv2d(64,128, 3,padding=1), nn.ReLU(True), 
-                                    nn.Conv2d(128,128, 3,padding=1), nn.ReLU(True), 
-                                    nn.Conv2d(128,128, 3,padding=1), nn.ReLU(True)).to(self.device)
-        
-        self.pool3 =  nn.MaxPool2d(2, stride=2).to(self.device)
+        self.convs3 = nn.Sequential(Convblock(64, 128),
+                                    Convblock(128, 128),
+                                    Convblock(128, 128)).to(self.device)
+
+        self.pool3 = nn.MaxPool2d(2, stride=2).to(self.device)
         self.flat = torch.nn.Flatten().to(self.device)
         self.FC512 = nn.Sequential(nn.Linear(4608, 512), nn.ReLU(True)).to(self.device)
         self.FC256 = nn.Sequential(nn.Linear(512, 256), nn.ReLU(True)).to(self.device)
         self.FCOUT = nn.Sequential(nn.Linear(256, out_dim)).to(self.device)
-    
-    def forward(self,x):
+
+    def forward(self, x):
         x = self.convs1(x)
         x = self.pool1(x)
         x = self.convs2(x)
@@ -77,7 +81,7 @@ class Custom_vgg(nn.Module):
         x = self.FC256(x)
         x = self.FCOUT(x)
         return x
-    
+
     def readable_output(self, x, cats):
         softmax = nn.Softmax(dim=1).to(self.device)
         y = softmax(self.forward(x))[0]
@@ -87,4 +91,4 @@ class Custom_vgg(nn.Module):
     def predict_single(self, x):
         softmax = nn.Softmax(dim=1).to(self.device)
         y = softmax(self.forward(x))[0]
-        return [round(float(100*proba), 2) for proba in y]
+        return [round(float(100 * proba), 2) for proba in y]
