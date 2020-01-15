@@ -49,8 +49,8 @@ def pixelstring_batch_totensor(psb, pixelstring_to_tensor):
 def emotion_batch_totensor(emb, loss_mode = "BCE"):
     if loss_mode == "BCE":
         out = torch.stack(tuple([label_to_vector(em) for em in emb]))
-    else :
-        out = torch.tensor(emb)
+    else:
+        return emb
     return out
 
     
