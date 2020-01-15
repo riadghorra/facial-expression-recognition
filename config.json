@@ -1,15 +1,16 @@
 {
   "path" : "fer2013.csv",
-  "BATCH" : 64,
+  "BATCH" : 4,
   "epochs" : 40,
   "eval_rate" : 0.3,
-  "test_rate" : 0.1,
+  "test_rate" : 1,
   "hidden_sizes" : [256,128,64],
-  "sample" : 30000,
+  "sample" : 30,
   "LR" : 0.001,
   "cats" : 7,
   "path_images" : "./pictures/",
   "catslist" : ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"],
   "resolution" : [48,48],
-  "current_best_model": "current_best_model_45p_acc_test"
+  "current_best_model": "current_best_model_45p_acc_test",
+  "loss_mode" : "CE"
 }

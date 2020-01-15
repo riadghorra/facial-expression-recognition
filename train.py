@@ -36,7 +36,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
 
     to_dataloader = [[train_dataframe["pixels"][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
 
-    dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=True, drop_last=True)
     model.train()
     print("debut du training")
     best_acc = 0
@@ -47,7 +47,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
             loss_function = make_loss(emotions_batch, weight)
 
             model.zero_grad()
-            out = softmax(model(batch.to(DEVICE)))
+            out = model(batch.to(DEVICE))
             labels = groundtruth.to(DEVICE)
             loss = loss_function(out, labels)
             loss.backward()
@@ -82,7 +82,7 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
             loss_function = make_loss(emotions_batch, weight)
 
-            out = softmax(model(batch.to(DEVICE)))
+            out = model(batch.to(DEVICE))
             labels = groundtruth.to(DEVICE)
             loss += loss_function(out, labels)
             compteur += torch.tensor(1.0).to(DEVICE)
@@ -118,9 +118,13 @@ def make_loss(emotions_batch, weights):
     """
     :param batch_ndim: if batch.size() is 64,1,48,48 batch_ndim is 4.
     """
-    loss_weights = torch.FloatTensor([weights[label] for label in emotions_batch])
-    loss_weights = loss_weights.unsqueeze(1)
-    return nn.BCELoss(weight=loss_weights).to(DEVICE)
+    assert config["loss_mode"] in ["CE","BCE"], "mode inconnu"
+    if config["loss_mode"] == "BCE":
+        loss_weights = torch.FloatTensor([weights[label] for label in emotions_batch])
+        loss_weights = loss_weights.unsqueeze(1)
+        return lambda x : nn.BCELoss(weight=loss_weights).to(DEVICE)(softmax(x))
+    elif  config["loss_mode"] == "CE":
+        return nn.CrossEntropyLoss(weight = weights).to(DEVICE)
 
 
 def main(model, preprocess_batch):
@@ -138,7 +142,7 @@ def main(model, preprocess_batch):
 
     # weights for loss
     weight = get_weights_for_loss(train_dataframe)
-
+    
     # train
     print("Starting model training with:")
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
