@@ -8,6 +8,7 @@ import json
 from tqdm import tqdm
 from classifier import FeedForwardNN, vgg16, Custom_vgg
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 """
 (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)
@@ -68,9 +69,9 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
             loss.backward()
             optimizer.step()
         model.eval()
-        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device)
+        probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device, compute_cm=False)
         scheduler.step(loss_train)
-        proba, loss_test, acc = evaluate(model, test_dataframe, preprocess_batch, weight, device)
+        proba, loss_test, acc, cm = evaluate(model, test_dataframe, preprocess_batch, weight, device, compute_cm=True)
         if acc > best_acc:
             torch.save(model.state_dict(), "current_best_model")
         model.train()
@@ -99,10 +100,12 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         plt.legend(loc='upper left', frameon=False)
         plt.grid()
         plt.xlabel("epoch")
+        print(cm)
+        print("(0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)")
     return model.eval()
 
 
-def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
+def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=False):
     with torch.no_grad():
         to_dataloader = [[dataframe["pixels"][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
         loss = torch.tensor(0.0).to(DEVICE)
@@ -110,6 +113,12 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
         probasum = torch.tensor(0.0).to(DEVICE)
         acc = torch.tensor(0.0).to(DEVICE)
         dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
+        
+        probas_pred = torch.tensor([])
+        y_pred = torch.tensor([])
+        y_true = torch.tensor([])
+        
+        
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
             loss_function = make_loss(emotions_batch, weight)
@@ -118,18 +127,27 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE):
             labels = groundtruth.to(DEVICE)
             loss += loss_function(out, labels)
             compteur += torch.tensor(1.0).to(DEVICE)
-            if config["loss_mode"] == "BCE":
-                probasum += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
-                acc += (out.argmax(1) == labels.argmax(1)).float().mean()
-            if config["loss_mode"] == "CE":
-                probas_batch = softmax(out)
-                probasum += (torch.tensor(
-                    [probas_batch[image_index][classe] for image_index, classe in enumerate(labels)]).sum() / float(
-                    len(labels))).to(DEVICE)
-                acc += (probas_batch.argmax(1) == labels).float().mean().to(DEVICE)
+#            if config["loss_mode"] == "BCE":
+#                probasum += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
+#                acc += (out.argmax(1) == labels.argmax(1)).float().mean()
+#            if config["loss_mode"] == "CE":
+            probas_batch = softmax(out)
+            probasum += (torch.tensor(
+                [probas_batch[image_index][classe] for image_index, classe in enumerate(labels)]).sum() / float(
+                len(labels))).to(DEVICE)
+            acc += (probas_batch.argmax(1) == labels).float().mean().to(DEVICE)
+            if compute_cm:
+                probas_pred = torch.cat((probas_pred,probas_batch))
+                y_pred = torch.cat((y_pred, probas_batch.argmax(1)))
+                y_true = torch.cat((y_true, labels.argmax(1)))
+                
+                
         loss_value = float(loss / compteur)
         proba = float(probasum / compteur)
         acc = float(acc / compteur)
+        if compute_cm :
+            cm = confusion_matrix(y_true, y_pred)
+            return proba, loss_value, acc, cm
         return proba, loss_value, acc
 
 
@@ -186,9 +204,9 @@ def main(model, preprocess_batch):
     print("Starting model training with:")
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
     model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, preprocess_batch, weight)
-    proba, loss_eval, acc = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE)
+    proba, loss_eval, acc, cm = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE, compute_cm=True)
 
-    return model, acc, loss_eval, proba
+    return model, acc, loss_eval, proba, cm
 
 
 def main_feedforward():
