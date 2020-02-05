@@ -7,6 +7,8 @@ from dataset_tools import preprocess_batch_custom_vgg, preprocess_batch_feed_for
 import json
 from tqdm import tqdm
 from classifier import FeedForwardNN, vgg16, Custom_vgg
+import matplotlib.pyplot as plt
+
 
 """
 (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)
@@ -49,6 +51,11 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
     model.train()
     print("debut du training")
     best_acc = 0
+    x = []
+    test_accs = []
+    train_losses = []
+    train_accs = []
+    test_losses = []]
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
@@ -77,6 +84,22 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         print("Proba sur le train: ", round(100 * float(probatrain), 2), "%")
         print("Loss train : ", float(loss_train))
         print("_______________")
+        x.append(epoch)
+        test_accs.append(float(acc))
+        test_losses.append(float(loss_test))
+        train_accs.append(float(acctrain))
+        train_losses.append(float(loss_train))
+        plt.figure()
+        plt.plot(x,train_accs, label = "Accuracy on train")
+        plt.plot(x,test_accs, label = "Accuracy on test")
+        plt.legend(loc='upper left', frameon=False)
+        plt.grid()
+        plt.xlabel("epoch")
+        plt.figure()
+        plt.plot(x,train_losses,label = "Loss on train" )
+        plt.legend(loc='upper left', frameon=False)
+        plt.grid()
+        plt.xlabel("epoch")
     return model.eval()
 
 
