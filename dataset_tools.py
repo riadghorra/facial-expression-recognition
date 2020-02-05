@@ -53,7 +53,6 @@ def emotion_batch_totensor(emb, loss_mode = "BCE"):
         return emb
     return out
 
-    
 
 # =============================================================================
 # Concatenation des tenseurs
@@ -142,3 +141,4 @@ def preprocess_batch_feed_forward(pixelstring_batch, emotions_batch, DEVICE):
     batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device=DEVICE))
 
     return batch, groundtruth
+
