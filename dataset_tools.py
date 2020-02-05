@@ -147,3 +147,4 @@ def preprocess_batch_feed_forward(pixelstring_batch, emotions_batch, DEVICE):
                                        lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device=DEVICE))
 
     return batch, groundtruth
+
