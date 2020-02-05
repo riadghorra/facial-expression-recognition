@@ -90,10 +90,10 @@ def crop_faces(cv_imgs):
     for index, image in enumerate(cv_imgs):
         faceCascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
         faces = faceCascade.detectMultiScale(
-                image,
-                scaleFactor=1.01,
-                minNeighbors=3,
-                minSize=(20, 20)
+            image,
+            scaleFactor=1.01,
+            minNeighbors=3,
+            minSize=(20, 20)
         )
 
         if len(faces) == 1:
@@ -162,7 +162,8 @@ def make_video(fps):
                     # write predictions on the output frame
                     for index, proba in enumerate(predictions):
                         text = "{}: {}%".format(config["catslist"][index], proba)
-                        cv2.putText(frame, text, (10, 130 + 32 * index), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+                        cv2.putText(frame, text, (10, 130 + 32 * index), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255),
+                                    2, cv2.LINE_AA)
 
                     out.write(frame)
             else:
@@ -170,7 +171,6 @@ def make_video(fps):
 
         if i % 60 == 0:
             print("Processed {} seconds of video".format(i / 60))
-
 
     cap.release()
     out.release()
