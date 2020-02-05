@@ -4,7 +4,7 @@ from itertools import product
 
 
 def plot_confusion_matrix(cm, display_labels):
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize = (12,10))
     n_classes = cm.shape[0]
     im_ = ax.imshow(cm, interpolation='nearest', cmap="viridis")
     cmap_min, cmap_max = im_.cmap(0), im_.cmap(256)
@@ -26,6 +26,6 @@ def plot_confusion_matrix(cm, display_labels):
            xlabel="Predicted label")
 
     ax.set_ylim((n_classes - 0.5, -0.5))
-    plt.setp(ax.get_xticklabels(), rotation="horizontal")
+    plt.setp(ax.get_xticklabels(), rotation="vertical")
 
     plt.show()
