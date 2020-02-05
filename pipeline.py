@@ -118,6 +118,29 @@ def crop_cv_img(img, x, y, w, h):
 def crop_csv_dataset(input_csv_path, output_csv_path):
     """
     Adds a column named "face" to the csv dataset with the cropped face for all the dataset, when the face is found.
+    Results:
+        {
+            ‘imgs_removed’: 11721,
+            ‘imgs_kept’: 24167,
+            ‘imgs_dropped_per_class’: {
+                ‘Angry’: 1668,
+                ‘Disgust’: 185,
+                ‘Fear’: 1915,
+                ‘Happy’: 2535,
+                ‘Sad’: 2767,
+                ‘Surprise’: 1075,
+                ‘Neutral’: 1576
+            },
+            ‘imgs_kept_per_class’: {
+                ‘Angry’: 3286,
+                ‘Disgust’: 362,
+                ‘Fear’: 3206,
+                ‘Happy’: 6454,
+                ‘Sad’: 3310,
+                ‘Surprise’: 2927,
+                ‘Neutral’: 4622
+            }
+        }
     :param input_csv_path: csv dataset path
     :param output_csv_path: where to write the output csv
     :return:
