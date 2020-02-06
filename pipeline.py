@@ -1,5 +1,6 @@
 import torch
 
+import time
 import cv2
 import os
 import json
@@ -110,6 +111,90 @@ def crop_faces(cv_imgs):
     return faces_coords
 
 
+def crop_cv_img(img, x, y, w, h):
+    return img[y:y + h, x:x + w]
+
+
+def crop_csv_dataset(input_csv_path, output_csv_path):
+    """
+    Adds a column named "face" to the csv dataset with the cropped face for all the dataset, when the face is found.
+    Results:
+        {
+            ‘imgs_removed’: 11721,
+            ‘imgs_kept’: 24167,
+            ‘imgs_dropped_per_class’: {
+                ‘Angry’: 1668,
+                ‘Disgust’: 185,
+                ‘Fear’: 1915,
+                ‘Happy’: 2535,
+                ‘Sad’: 2767,
+                ‘Surprise’: 1075,
+                ‘Neutral’: 1576
+            },
+            ‘imgs_kept_per_class’: {
+                ‘Angry’: 3286,
+                ‘Disgust’: 362,
+                ‘Fear’: 3206,
+                ‘Happy’: 6454,
+                ‘Sad’: 3310,
+                ‘Surprise’: 2927,
+                ‘Neutral’: 4622
+            }
+        }
+    :param input_csv_path: csv dataset path
+    :param output_csv_path: where to write the output csv
+    :return:
+    """
+    initial_time = time.time()
+    all_data = pd.read_csv(input_csv_path, header=0)
+
+    stats = {
+        "progress": 0,
+        "imgs_removed": 0,
+        "imgs_kept": 0,
+        "imgs_dropped_per_class": {
+            label: 0 for label in config["catslist"]
+        },
+        "imgs_kept_per_class" : {
+            label: 0 for label in config["catslist"]
+        }
+    }
+
+    def crop_face_for_img(row, *args):
+        (stats,) = args
+        stats["progress"] += 1
+        if stats["progress"] % 100 == 0:
+            print("Duration so far", time.time() - initial_time, "Progress: ", int(stats["progress"]))
+            print("Stats so far", stats)
+
+        pixelstring = row["pixels"]
+        img = np.array(string_to_pilimage(pixelstring))
+        [faces_coords] = crop_faces([img])
+
+        if faces_coords is None:
+            stats["imgs_dropped_per_class"][config["catslist"][row["emotion"]]] += 1
+            stats["imgs_removed"] += 1
+            return None
+
+        stats["imgs_kept_per_class"][config["catslist"][row["emotion"]]] += 1
+        stats["imgs_kept"] += 1
+        (x, y, w, h) = faces_coords
+
+        cropped_cv_img = crop_cv_img(img, x, y, w, h)
+        resized_cv_img = cv2.resize(cropped_cv_img, (48, 48))
+
+        pixels = resized_cv_img.flatten().tolist()
+        row["face"] = " ".join(map(str, pixels))
+        return row
+
+    # all_data["face"] = all_data["pixels"].apply(crop_face_for_img, args=(stats,))
+    all_data = all_data.apply(crop_face_for_img, args=(stats,), axis=1)
+    all_data.dropna(inplace=True)
+    all_data["emotion"] = all_data["emotion"].astype(int)
+    all_data.to_csv(output_csv_path, index=False)
+    print(stats)
+
+
 def make_video(fps):
     """
     Make video from model predictions on the youtube faciale expression video: https://www.youtube.com/watch?v=B0ouAnmsO1Y
@@ -177,4 +262,6 @@ def make_video(fps):
     cv2.destroyAllWindows()
 
 
-make_video(20)
+# make_video(20)
+
+# crop_csv_dataset("./fer2013.csv", "./faces.csv")
