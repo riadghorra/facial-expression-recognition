@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-##############################################################################
-# Copyright (c) 2012 Hajime Nakagami<nakagami@gmail.com>
-# All rights reserved.
-# Licensed under the New BSD License
-# (http://www.freebsd.org/copyright/freebsd-license.html)
-##############################################################################
-
 import PIL.Image
 import os
 import pandas as pd
@@ -121,7 +113,3 @@ class App(Frame):
 
 if __name__ == "__main__":
     app = App(); app.mainloop()
-
-
-# TODO save predictions as csv (img_path, prediction)
-# TODO button load predictions
