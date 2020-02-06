@@ -146,7 +146,7 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=Fals
         proba = float(probasum / compteur)
         acc = float(acc / compteur)
         if compute_cm:
-            cm = confusion_matrix(y_true.cpu(), y_pred.cpu(), normalize = 'true')
+            cm = confusion_matrix(y_true.cpu(), y_pred.cpu(), normalize='true')
             return proba, loss_value, acc, cm
         return proba, loss_value, acc
 
