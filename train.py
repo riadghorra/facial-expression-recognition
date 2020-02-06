@@ -116,9 +116,9 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=Fals
         acc = torch.tensor(0.0).to(DEVICE)
         dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
 
-        probas_pred = torch.tensor([])
-        y_pred = torch.tensor([])
-        y_true = torch.tensor([])
+        probas_pred = torch.tensor([]).to(DEVICE)
+        y_pred = torch.tensor([]).to(DEVICE)
+        y_true = torch.tensor([]).to(DEVICE)
 
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
@@ -139,14 +139,14 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=Fals
             acc += (probas_batch.argmax(1) == labels).float().mean().to(DEVICE)
             if compute_cm:
                 probas_pred = torch.cat((probas_pred, probas_batch))
-                y_pred = torch.cat((y_pred, probas_batch.argmax(1)))
-                y_true = torch.cat((y_true, labels.argmax(1)))
+                y_pred = torch.cat((y_pred, probas_batch.argmax(1).float()))
+                y_true = torch.cat((y_true, labels.float()))
 
         loss_value = float(loss / compteur)
         proba = float(probasum / compteur)
         acc = float(acc / compteur)
         if compute_cm:
-            cm = confusion_matrix(y_true, y_pred)
+            cm = confusion_matrix(y_true.cpu(), y_pred.cpu(), normalize='true')
             return proba, loss_value, acc, cm
         return proba, loss_value, acc
 
