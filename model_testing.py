@@ -4,7 +4,10 @@ import torchvision.transforms as transforms
 import json
 from classifier import Custom_vgg
 import os
+import pandas as pd
+import numpy as np
 
+from pipeline import crop_faces, crop_cv_img
 
 with open('config.json') as json_file:
     config = json.load(json_file)
@@ -29,12 +32,27 @@ for r, d, f in os.walk(config["path_images"]):
         if any(extension in file for extension in ['.jpeg', '.jpg', '.png']):
             images.append(os.path.join(r, file))
 
+results_df = pd.DataFrame()
 
 for path in images:
-    print(path)
-    image = pl.Image.open(path).resize(config["resolution"])
-    x = pre_process(image).unsqueeze(0)
-    model = Custom_vgg(1, config["cats"], DEVICE)
-    model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
-    print(model.readable_output(x, config["catslist"]))
+    print("Processing {}".format(path))
+    image = pl.Image.open(path)
+    cv_img = np.array(image)
+    [face_coords] = crop_faces([cv_img])
+    if face_coords is not None:
+        print("Face found on image.")
+        (x, y, w, h) = face_coords
+        face_image = crop_cv_img(cv_img, x, y, w, h)
+        pil_face_image = pl.Image.fromarray(face_image).resize(config["resolution"])
+        pil_face_image = pre_process(pil_face_image).unsqueeze(0)
+
+        model = Custom_vgg(1, config["cats"], DEVICE)
+        # model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
+        # model.readable_output(x, config["catslist"])
+        results = model.predict_single(pil_face_image)
+        results_dict = {cat: results[i] for i, cat in enumerate(config["catslist"])}
+        results_dict["path"] = path
+        results_df = results_df.append(results_dict, ignore_index=True)
+
+results_df.to_csv("predictions.csv", index=False)
 
