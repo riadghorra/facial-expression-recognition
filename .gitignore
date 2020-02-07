@@ -3,3 +3,4 @@ fer2013.tar.gz
 .DS_STORE
 __pycache__
 current_best_model
+*.csv
