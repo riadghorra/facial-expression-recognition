@@ -37,7 +37,7 @@ class App(Frame):
         self.predictions_label_title.pack(side=LEFT)
         predictions_labels_frame = Frame(self)
         self.predictions_labels = {
-            cat: Label(predictions_labels_frame, text="{}: None".format(cat)) for cat in config["catslist"]
+            cat: Label(predictions_labels_frame, text="") for cat in config["catslist"]
         }
         for label in self.predictions_labels.values():
             label.pack(side=LEFT)
@@ -85,8 +85,14 @@ class App(Frame):
             return
 
         img_predictions = self.predictions[self.predictions["path"] == self.img_paths[self.current_img_idx]]
-        for cat in config["catslist"]:
-            self.predictions_labels[cat].config(text="{}: {}".format(cat, img_predictions[cat].values[0]))
+        if not img_predictions.empty:
+            for cat in config["catslist"]:
+                self.predictions_labels[cat].config(text="{}: {}".format(cat, img_predictions[cat].values[0]))
+            self.predictions_label_title.config(text="Predictions: ")
+        else:
+            self.predictions_label_title.config(text="No predictions found for this file.")
+            for cat in config["catslist"]:
+                self.predictions_labels[cat].config(text="")
 
     def load_image(self):
         path = self.img_paths[self.current_img_idx]
