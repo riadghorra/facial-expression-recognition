@@ -10,6 +10,7 @@ from classifier import FeedForwardNN, vgg16, Custom_vgg
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 from utils import plot_confusion_matrix
+import random
 
 """
 (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)
@@ -30,6 +31,7 @@ else:
     DEVICE = torch.device('cpu')
 softmax = nn.Softmax(dim=1).to(DEVICE)
 
+random.seed(0)
 
 # =============================================================================
 # Train
