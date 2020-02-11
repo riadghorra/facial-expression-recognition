@@ -46,7 +46,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
                                                      cooldown=0,
                                                      min_lr=0,
                                                      eps=1e-08)
-    to_dataloader = [[train_dataframe["pixels"][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
+    to_dataloader = [[train_dataframe[config["data_column"]][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
 
     dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=True, drop_last=True)
     model.train()

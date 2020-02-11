@@ -1,5 +1,6 @@
 {
-  "path" : "/content/drive/My Drive/Projet Illuin OSY/datasets/csv/fer2013.csv",
+  "path" : "/content/drive/My Drive/Projet Illuin OSY/datasets/csv/faces.csv",
+  "data_column": "face",
   "BATCH" : 64,
   "epochs" : 40,
   "eval_rate" : 0.3,
