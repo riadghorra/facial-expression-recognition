@@ -17,11 +17,11 @@ TODO
         triplet_id / im1_id / im2_id / im3_id / triplet_type / majority_label / majority_confidence
 """
 
-dataframe = pd.read_csv("./fec/test.csv", names=[str(i) for i in range(50)])
+dataframe = pd.read_csv("./fec/train.csv", names=[str(i) for i in range(50)])
 
-SAVED_FACES_PATH = "./fec/test"
+SAVED_FACES_PATH = "./fec/train"
 SAVED_DF_PATH = "./fec"
-SAVED_DF_NAME = "faces_test"
+SAVED_DF_NAME = "faces_train"
 SAVE_PROGRESS_INTERVAL = 50
 
 
@@ -91,6 +91,7 @@ def downloader(fec_df):
                     _, error, tb = sys.exc_info()
                     print("UNEXPECTED ERROR:", error)
                     traceback.print_tb(tb)
+                    faces_df = add_img_to_faces_df(faces_df, uuid4(), url, False)
 
     faces_df.to_csv("{}/{}.csv".format(SAVED_DF_PATH, SAVED_DF_NAME), index=False)
 
