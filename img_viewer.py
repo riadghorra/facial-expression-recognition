@@ -1,6 +1,7 @@
 import PIL.Image
 import os
 import pandas as pd
+import numpy as np
 import json
 
 try:
@@ -33,6 +34,26 @@ class App(Frame):
         Button(buttons_frame, text="Prev", command=self.prev, highlightbackground="#3E4149").pack(side=LEFT)
         Button(buttons_frame, text="Next", command=self.next, highlightbackground="#3E4149").pack(side=LEFT)
 
+        annotation_title_frame = Frame(self)
+        Label(annotation_title_frame, text="Where annotations should be saved?").pack(side=LEFT)
+
+        annotation_input_filename_frame = Frame(self)
+        self.annotations_filename = StringVar(value="annotations")
+        self.annotations_path = "./{}.csv".format(self.annotations_filename.get())
+        self.annotations = pd.DataFrame(columns=["emotion", "path"])
+        Entry(annotation_input_filename_frame, textvariable=self.annotations_filename).pack(side=LEFT)
+
+        annotation_buttons_frame = Frame(self)
+
+        def make_annotate_func(self, label):
+            return lambda: self.annotate(label)
+        for index, category in enumerate(config["catslist"]):
+            Button(annotation_buttons_frame, text=category, command=make_annotate_func(self, index), highlightbackground="#3E4149").pack(side=LEFT)
+
+        annotation_results_frame = Frame(self)
+        self.annotation_result = Label(annotation_results_frame, text="No annotation selected yet.")
+        self.annotation_result.pack(side=LEFT)
+
         predictions_labels_title_frame = Frame(self)
         self.predictions_label_title = Label(predictions_labels_title_frame, text="Predictions: ")
         self.predictions_label_title.pack(side=LEFT)
@@ -44,6 +65,12 @@ class App(Frame):
             label.pack(side=LEFT)
 
         buttons_frame.pack(side=TOP, fill=BOTH)
+
+        annotation_title_frame.pack(side=TOP, fill=BOTH)
+        annotation_input_filename_frame.pack(side=TOP, fill=BOTH)
+        annotation_buttons_frame.pack(side=TOP, fill=BOTH)
+        annotation_results_frame.pack(side=TOP, fill=BOTH)
+
         predictions_labels_title_frame.pack(side=TOP, fill=BOTH)
         predictions_labels_frame.pack(side=TOP, fill=BOTH)
 
@@ -72,6 +99,7 @@ class App(Frame):
 
         if not self.predictions.empty:
             self.load_predictions()
+        self.load_annotation()
 
     def open_file(self):
         try:
@@ -85,6 +113,7 @@ class App(Frame):
         self.load_image()
         if not self.predictions.empty:
             self.load_predictions()
+        self.load_annotation()
 
     def open_predictions(self):
         try:
@@ -119,16 +148,57 @@ class App(Frame):
         self.la.config(image=self.img, bg="#000000",
             width=self.img.width(), height=self.img.height())
 
+    def annotate(self, label):
+        if not self.annotations_filename:
+            self.annotation_result.config(text="Please enter an annotation file name.")
+            return
+
+        current_img_path = self.img_paths[self.current_img_idx]
+        self.annotations_path = "./{}.csv".format(self.annotations_filename.get())
+        try:
+            self.annotations = pd.read_csv(self.annotations_path)
+        except FileNotFoundError:
+            pass
+
+        is_annotated = np.sum(self.annotations['path'].values == current_img_path) > 0
+
+        if is_annotated:
+            self.annotations['emotion'].values[self.annotations['path'].values == current_img_path] = label
+        else:
+            self.annotations = self.annotations.append({"emotion": label, "path": current_img_path}, ignore_index=True)
+
+        self.annotations.to_csv(self.annotations_path, index=False)
+        self.load_annotation()
+
+    def load_annotation(self):
+        if self.annotations.empty or self.annotations_path != "./{}.csv".format(self.annotations_filename.get()):
+            try:
+                self.annotations = pd.read_csv(self.annotations_path)
+                self.annotations_path = "./{}.csv".format(self.annotations_filename.get())
+            except FileNotFoundError:
+                self.annotation_result.config(text="Error while loading annotations: the file does not exist.")
+
+        current_img_path = self.img_paths[self.current_img_idx]
+        mask = self.annotations['path'].values == current_img_path
+        is_annotated = np.sum(mask) > 0
+        if is_annotated:
+            annotation = self.annotations['emotion'].values[mask][0]
+            category = config["catslist"][annotation]
+            self.annotation_result.config(text="Annotated as {}".format(category))
+        else:
+            self.annotation_result.config(text="No annotation selected yet.")
 
     def prev(self):
         self.current_img_idx = (self.current_img_idx - 1) % len(self.img_paths)
         self.load_image()
         self.load_predictions()
+        self.load_annotation()
 
     def next(self):
         self.current_img_idx = (self.current_img_idx + 1) % len(self.img_paths)
         self.load_image()
         self.load_predictions()
+        self.load_annotation()
 
 
 if __name__ == "__main__":
