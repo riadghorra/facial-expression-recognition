@@ -25,6 +25,19 @@ pre_process = transforms.Compose(
          transforms.Normalize(mean=[0.5], std=[0.5])])
 
 
+def resize_input_image(pil_img):
+    (w, h) = pil_img.size
+    aspect_ratio = w / h
+
+    if w > 800:
+        return pil_img.resize((800, int(800 / aspect_ratio)))
+
+    if h > 800:
+        return pil_img.resize((int(800 * aspect_ratio), 800))
+
+    return pil_img
+
+
 images = []
 # r=root, d=directories, f = files
 for r, d, f in os.walk(config["path_images"]):
@@ -34,9 +47,16 @@ for r, d, f in os.walk(config["path_images"]):
 
 results_df = pd.DataFrame()
 
+IMG_TO_TEST = 200
+i = 0
+
 for path in images:
+    if i >= IMG_TO_TEST:
+        break
+    i += 1
     print("Processing {}".format(path))
     image = pl.Image.open(path)
+    image = resize_input_image(image)
     cv_img = np.array(image)
     [face_coords] = crop_faces([cv_img])
     if face_coords is not None:
@@ -47,7 +67,7 @@ for path in images:
         pil_face_image = pre_process(pil_face_image).unsqueeze(0)
 
         model = Custom_vgg(1, config["cats"], DEVICE)
-        # model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
+        model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
         # model.readable_output(x, config["catslist"])
         results = model.predict_single(pil_face_image)
         results_dict = {cat: results[i] for i, cat in enumerate(config["catslist"])}

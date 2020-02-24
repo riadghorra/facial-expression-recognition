@@ -14,6 +14,7 @@ import PIL.ImageTk
 with open('config.json') as json_file:
     config = json.load(json_file)
 
+
 class App(Frame):
     def __init__(self, master=None):
         Frame.__init__(self, master)
@@ -52,7 +53,12 @@ class App(Frame):
         self.pack()
 
     def open_dir(self):
-        self.directory = filedialog.askdirectory()
+        try:
+            directory = filedialog.askdirectory()
+        except Exception:
+            return
+
+        self.directory = directory
         self.current_img_idx = 0
         self.img_paths = []
 
@@ -68,15 +74,23 @@ class App(Frame):
             self.load_predictions()
 
     def open_file(self):
+        try:
+            file = filedialog.askopenfilename()
+        except Exception:
+            return
+
         self.directory = ""
         self.current_img_idx = 0
-        self.img_paths = [filedialog.askopenfilename()]
+        self.img_paths = [file]
         self.load_image()
         if not self.predictions.empty:
             self.load_predictions()
 
     def open_predictions(self):
-        path = filedialog.askopenfilename()
+        try:
+            path = filedialog.askopenfilename()
+        except Exception:
+            return
         self.predictions = pd.read_csv(path)
         self.load_predictions()
 
