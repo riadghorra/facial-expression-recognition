@@ -46,9 +46,8 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
                                                      cooldown=0,
                                                      min_lr=0,
                                                      eps=1e-08)
-    to_dataloader = [[train_dataframe[config["data_column"]][i], train_dataframe["emotion"][i]] for i in range(len(train_dataframe))]
+    dataloader = make_dataloader(train_dataframe, shuffle=True, drop_last=True)
 
-    dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=True, drop_last=True)
     model.train()
     print("debut du training")
     best_acc = 0
@@ -102,19 +101,17 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         plt.legend(loc='upper left', frameon=False)
         plt.grid()
         plt.xlabel("epoch")
-        plot_confusion_matrix(cm, ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"])
-        # print("(0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)")
+        plot_confusion_matrix(cm, config["catslist"])
     return model.eval()
 
 
 def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=False):
     with torch.no_grad():
-        to_dataloader = [[dataframe["pixels"][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
+        dataloader = make_dataloader(dataframe, shuffle=False, drop_last=False)
         loss = torch.tensor(0.0).to(DEVICE)
         compteur = torch.tensor(0.0).to(DEVICE)
         probasum = torch.tensor(0.0).to(DEVICE)
         acc = torch.tensor(0.0).to(DEVICE)
-        dataloader = torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=False, drop_last=False)
 
         probas_pred = torch.tensor([]).to(DEVICE)
         y_pred = torch.tensor([]).to(DEVICE)
@@ -184,6 +181,14 @@ def make_loss(emotions_batch, weights):
         return nn.CrossEntropyLoss(weight=weights).to(DEVICE)
 
 
+def make_dataloader(dataframe, shuffle=False, drop_last=False):
+    """
+    :param dataframe: columns {config["data_column"]} with pixels and "emotion" for annotation.
+    """
+    to_dataloader = [[dataframe[config["data_column"]][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
+    return torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=shuffle, drop_last=drop_last)
+
+
 def main(model, preprocess_batch):
     print("creation du dataset")
     all_data = pd.read_csv(config["path"], header=0)
@@ -231,5 +236,3 @@ def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
                                                                                                      config[
                                                                                                          "loss_mode"]))
 
-
-main_custom_vgg(start_from_best_model=False, with_data_aug=True)

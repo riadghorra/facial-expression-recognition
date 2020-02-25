@@ -169,6 +169,7 @@ class App(Frame):
 
         self.annotations.to_csv(self.annotations_path, index=False)
         self.load_annotation()
+        self.next()
 
     def load_annotation(self):
         if self.annotations.empty or self.annotations_path != "./{}.csv".format(self.annotations_filename.get()):
