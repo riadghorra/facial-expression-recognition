@@ -1,6 +1,7 @@
 import PIL.Image
 import os
 import pandas as pd
+import numpy as np
 import json
 
 try:
@@ -50,10 +51,10 @@ class App(Frame):
             Button(annotation_buttons_frame, text=category, command=make_annotate_func(self, index), highlightbackground="#3E4149").pack(side=LEFT)
         Button(annotation_buttons_frame, text="Remove annotation", command=self.annotate("", True), highlightbackground="#3E4149").pack(side=LEFT)
 
+
         annotation_results_frame = Frame(self)
         self.annotation_result = Label(annotation_results_frame, text="No annotation selected yet.")
         self.annotation_result.pack(side=LEFT)
-
 
         predictions_labels_title_frame = Frame(self)
         self.predictions_label_title = Label(predictions_labels_title_frame, text="Predictions: ")
@@ -66,6 +67,12 @@ class App(Frame):
             label.pack(side=LEFT)
 
         buttons_frame.pack(side=TOP, fill=BOTH)
+
+        annotation_title_frame.pack(side=TOP, fill=BOTH)
+        annotation_input_filename_frame.pack(side=TOP, fill=BOTH)
+        annotation_buttons_frame.pack(side=TOP, fill=BOTH)
+        annotation_results_frame.pack(side=TOP, fill=BOTH)
+
         predictions_labels_title_frame.pack(side=TOP, fill=BOTH)
         predictions_labels_frame.pack(side=TOP, fill=BOTH)
 
@@ -94,6 +101,7 @@ class App(Frame):
 
         if not self.predictions.empty:
             self.load_predictions()
+        self.load_annotation()
 
     def open_file(self):
         try:
@@ -107,6 +115,7 @@ class App(Frame):
         self.load_image()
         if not self.predictions.empty:
             self.load_predictions()
+        self.load_annotation()
 
     def open_predictions(self):
         try:
@@ -194,11 +203,13 @@ class App(Frame):
         self.current_img_idx = (self.current_img_idx - 1) % len(self.img_paths)
         self.load_image()
         self.load_predictions()
+        self.load_annotation()
 
     def next(self):
         self.current_img_idx = (self.current_img_idx + 1) % len(self.img_paths)
         self.load_image()
         self.load_predictions()
+        self.load_annotation()
 
 
 if __name__ == "__main__":
