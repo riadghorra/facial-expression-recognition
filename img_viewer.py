@@ -49,6 +49,7 @@ class App(Frame):
             return lambda: self.annotate(label)
         for index, category in enumerate(config["catslist"]):
             Button(annotation_buttons_frame, text=category, command=make_annotate_func(self, index), highlightbackground="#3E4149").pack(side=LEFT)
+        Button(annotation_buttons_frame, text="Remove annotation", command=lambda: self.annotate("", True), highlightbackground="#3E4149").pack(side=LEFT)
 
         annotation_results_frame = Frame(self)
         self.annotation_result = Label(annotation_results_frame, text="No annotation selected yet.")
@@ -148,7 +149,12 @@ class App(Frame):
         self.la.config(image=self.img, bg="#000000",
             width=self.img.width(), height=self.img.height())
 
-    def annotate(self, label):
+    def annotate(self, label, delete=False):
+        """
+        :param label: label
+        :param delete: if set to True, just delete the annotation for current image.
+        :return:
+        """
         if not self.annotations_filename:
             self.annotation_result.config(text="Please enter an annotation file name.")
             return
@@ -162,10 +168,13 @@ class App(Frame):
 
         is_annotated = np.sum(self.annotations['path'].values == current_img_path) > 0
 
-        if is_annotated:
-            self.annotations['emotion'].values[self.annotations['path'].values == current_img_path] = label
+        if not delete:
+            if is_annotated:
+                self.annotations['emotion'].values[self.annotations['path'].values == current_img_path] = label
+            else:
+                self.annotations = self.annotations.append({"emotion": label, "path": current_img_path}, ignore_index=True)
         else:
-            self.annotations = self.annotations.append({"emotion": label, "path": current_img_path}, ignore_index=True)
+            self.annotations.drop(self.annotations[self.annotations['path'].values == current_img_path].index, inplace=True)
 
         self.annotations.to_csv(self.annotations_path, index=False)
         self.load_annotation()

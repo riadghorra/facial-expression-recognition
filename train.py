@@ -57,6 +57,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
     train_losses = []
     train_accs = []
     test_losses = []
+    test_accs_facs = []
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
@@ -73,7 +74,8 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device,
                                                     compute_cm=False)
         scheduler.step(loss_train)
-        proba, loss_test, acc, cm = evaluate(model, test_dataframe, preprocess_batch, weight, device, compute_cm=True)
+        proba, loss_test, acc, cm1, cm2, acc_factorised = evaluate(model, test_dataframe, preprocess_batch, weight,
+                                                                   device, compute_cm=True)
         if acc > best_acc:
             torch.save(model.state_dict(), "current_best_model")
         model.train()
@@ -85,24 +87,37 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         print("Accuracy sur le train : ", round(100 * float(acctrain), 2), "%")
         print("Proba sur le train: ", round(100 * float(probatrain), 2), "%")
         print("Loss train : ", float(loss_train))
+        print("Accuracy with grouped classes : ", round(100 * float(acc_factorised), 2), "%")
         print("_______________")
         x.append(epoch)
         test_accs.append(float(acc))
         test_losses.append(float(loss_test))
+        test_accs_facs.append(float(acc_factorised))
         train_accs.append(float(acctrain))
         train_losses.append(float(loss_train))
+
+        fig, axes = plt.subplots(figsize=(10, 5), nrows=1, ncols=2)
+        ax0, ax1 = axes.flatten()
+
+        ax0.plot(x, train_accs, label="Accuracy on train")
+        ax0.plot(x, test_accs, label="Accuracy on test")
+        ax0.legend(loc='upper left', frameon=False)
+        ax0.grid()
+        ax0.set_xlabel("epoch")
+
+        ax1.plot(x, train_losses, label="Loss on train")
+        ax1.legend(loc='upper left', frameon=False)
+        ax1.grid()
+        ax1.set_xlabel("epoch")
+
+        plot_confusion_matrix(cm1, config["catslist"])
+        plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
+
         plt.figure()
-        plt.plot(x, train_accs, label="Accuracy on train")
-        plt.plot(x, test_accs, label="Accuracy on test")
-        plt.legend(loc='upper left', frameon=False)
+        plt.plot(x, test_accs_facs, label="Accuracy on test with factorised classes")
         plt.grid()
-        plt.xlabel("epoch")
-        plt.figure()
-        plt.plot(x, train_losses, label="Loss on train")
-        plt.legend(loc='upper left', frameon=False)
-        plt.grid()
-        plt.xlabel("epoch")
-        plot_confusion_matrix(cm, config["catslist"])
+        plt.xlabel("epochs")
+
     return model.eval()
 
 
@@ -112,7 +127,8 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=Fals
         loss = torch.tensor(0.0).to(DEVICE)
         compteur = torch.tensor(0.0).to(DEVICE)
         probasum = torch.tensor(0.0).to(DEVICE)
-        acc = torch.tensor(0.0).to(DEVICE)
+        acc_all = torch.tensor(0.0).to(DEVICE)
+        acc_factorised = torch.tensor(0.0).to(DEVICE)
 
         y_pred = torch.tensor([]).to(DEVICE)
         y_true = torch.tensor([]).to(DEVICE)
@@ -125,33 +141,44 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=Fals
             groundtruth = groundtruth.to(DEVICE)
             loss += loss_function(out, groundtruth)
             compteur += torch.tensor(1.0).to(DEVICE)
+
             if config["loss_mode"] == "BCE":
                 out_norm_batch = norm_L2_batch(out)
                 groundtruth_norm_batch = norm_L2_batch(groundtruth)
                 out_dot_groundtruth_batch = dot_product_batch(out, groundtruth)
                 cosine_similarity_batch = out_dot_groundtruth_batch / (out_norm_batch * groundtruth_norm_batch)
                 probasum += cosine_similarity_batch.mean().to(DEVICE)
-                acc += (out.argmax(1) == groundtruth.argmax(1)).float().mean()
+                acc_all += (out.argmax(1) == groundtruth.argmax(1)).float().mean()
                 if compute_cm:
                     y_pred = torch.cat((y_pred, out.argmax(1).float()))
                     y_true = torch.cat((y_true, groundtruth.argmax(1).float()))
+                    probas_batch = softmax(out)
+                    acc_factorised += (factorise_emotions_vectors(probas_batch).argmax(1) == factorise_emotions_vectors(
+                        groundtruth).argmax(1)).float().mean().to(DEVICE)
+
             if config["loss_mode"] == "CE":
                 probas_batch = softmax(out)
                 probasum += (torch.tensor(
                     [probas_batch[image_index][classe] for image_index, classe in
                      enumerate(groundtruth)]).sum() / float(
                     len(groundtruth))).to(DEVICE)
-                acc += (probas_batch.argmax(1) == groundtruth).float().mean().to(DEVICE)
+                acc_all += (probas_batch.argmax(1) == groundtruth).float().mean().to(DEVICE)
                 if compute_cm:
                     y_pred = torch.cat((y_pred, probas_batch.argmax(1).float()))
                     y_true = torch.cat((y_true, groundtruth.float()))
+                    acc_factorised += (factorise_emotions_vectors(probas_batch).argmax(1) == factorise_emotions(
+                        groundtruth).argmax(1)).float().mean().to(
+                        DEVICE)
 
         loss_value = float(loss / compteur)
         proba = float(probasum / compteur)
-        acc = float(acc / compteur)
+        acc = float(acc_all / compteur)
+
         if compute_cm:
-            cm = confusion_matrix(y_true.cpu(), y_pred.cpu(), normalize='true')
-            return proba, loss_value, acc, cm
+            cm1 = confusion_matrix(y_true.cpu(), y_pred.cpu(), normalize='true')
+            cm2 = confusion_matrix(factorise_emotions(y_true.cpu()), factorise_emotions(y_pred.cpu()), normalize='true')
+            acc_fact = float(acc_factorised / compteur)
+            return proba, loss_value, acc, cm1, cm2, acc_fact
         return proba, loss_value, acc
 
 
