@@ -1,24 +1,16 @@
 import PIL as pl
 import torch
 import torchvision.transforms as transforms
-import json
+from time import time
 from classifier import Custom_vgg
 import os
 import pandas as pd
 import numpy as np
 
+from dataset_tools import preprocess_batch_custom_vgg
 from pipeline import crop_faces, crop_cv_img
-
-with open('config.json') as json_file:
-    config = json.load(json_file)
-
-if torch.cuda.is_available():
-    DEVICE = torch.device('cuda')
-    print('Initialisation de cuda')
-    torch.cuda.init()
-else:
-    print('Mode CPU')
-    DEVICE = torch.device('cpu')
+from train import evaluate, DEVICE, config
+from utils import plot_confusion_matrix
 
 pre_process = transforms.Compose(
         [transforms.Grayscale(num_output_channels=1), transforms.ToTensor(),
@@ -38,41 +30,81 @@ def resize_input_image(pil_img):
     return pil_img
 
 
-images = []
-# r=root, d=directories, f = files
-for r, d, f in os.walk(config["path_images"]):
-    for file in f:
-        if any(extension in file for extension in ['.jpeg', '.jpg', '.png']):
-            images.append(os.path.join(r, file))
+def load_model():
+    model = Custom_vgg(1, config["cats"], DEVICE)
+    model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
+    return model
 
-results_df = pd.DataFrame()
 
-IMG_TO_TEST = 200
-i = 0
+def test_on_folder():
+    images = []
+    # r=root, d=directories, f = files
+    for r, d, f in os.walk(config["path_images"]):
+        for file in f:
+            if any(extension in file for extension in ['.jpeg', '.jpg', '.png']):
+                images.append(os.path.join(r, file))
 
-for path in images:
-    if i >= IMG_TO_TEST:
-        break
-    i += 1
-    print("Processing {}".format(path))
-    image = pl.Image.open(path)
-    image = resize_input_image(image)
-    cv_img = np.array(image)
-    [face_coords] = crop_faces([cv_img])
-    if face_coords is not None:
-        print("Face found on image.")
-        (x, y, w, h) = face_coords
-        face_image = crop_cv_img(cv_img, x, y, w, h)
-        pil_face_image = pl.Image.fromarray(face_image).resize(config["resolution"])
-        pil_face_image = pre_process(pil_face_image).unsqueeze(0)
+    results_df = pd.DataFrame()
 
-        model = Custom_vgg(1, config["cats"], DEVICE)
-        model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
-        # model.readable_output(x, config["catslist"])
-        results = model.predict_single(pil_face_image)
-        results_dict = {cat: results[i] for i, cat in enumerate(config["catslist"])}
-        results_dict["path"] = path
-        results_df = results_df.append(results_dict, ignore_index=True)
+    IMG_TO_TEST = 200
+    i = 0
 
-results_df.to_csv("predictions.csv", index=False)
+    for path in images:
+        if i >= IMG_TO_TEST:
+            break
+        i += 1
+        print("Processing {}".format(path))
+        image = pl.Image.open(path)
+        image = resize_input_image(image)
+        cv_img = np.array(image)
+        [face_coords] = crop_faces([cv_img])
+        if face_coords is not None:
+            print("Face found on image.")
+            (x, y, w, h) = face_coords
+            face_image = crop_cv_img(cv_img, x, y, w, h)
+            pil_face_image = pl.Image.fromarray(face_image).resize(config["resolution"])
+            pil_face_image = pre_process(pil_face_image).unsqueeze(0)
 
+            model = load_model()
+            results = model.predict_single(pil_face_image)
+            results_dict = {cat: results[i] for i, cat in enumerate(config["catslist"])}
+            results_dict["path"] = path
+            results_df = results_df.append(results_dict, ignore_index=True)
+
+    results_df.to_csv("predictions.csv", index=False)
+
+
+def test_on_annotated_csv(annotations_csv_path):
+    start_time = time()
+    # add column "pixels" to annotated csv (same format as FER csv)
+    print("Loading annotations...")
+    df = pd.read_csv(annotations_csv_path)
+    pixels = []
+    for path in df["path"].values:
+        image = np.array(pl.Image.open(path))
+        pixels_list = image.flatten().tolist()
+        pixels.append(" ".join(map(str, pixels_list)))
+    df[config["data_column"]] = pixels
+
+    print("Loaded annotations in {}s".format(round(time() - start_time, 2)))
+    start_time = time()
+    # load model and evaluate it
+    print("Loading model...")
+    model = load_model()
+
+    print("Evaluating model...")
+    
+    def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
+        return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+
+    dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)  # we don't care about the test loss value here.
+    proba, _, acc, cm = evaluate(model, df, preprocess_batch, dummy_weights, DEVICE, compute_cm=True)
+
+    print("FINAL ACCURACY: {}".format(acc))
+    print("Average predicted proba for right class: {}".format(proba))
+    print("Duration on {} test faces: {}s".format(len(df), round(time() - start_time, 2)))
+    print("Close the confusion matrix to end the script.")
+    plot_confusion_matrix(cm, config["catslist"])
+
+
+test_on_annotated_csv("./annotations.csv")
