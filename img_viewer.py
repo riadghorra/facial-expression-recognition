@@ -49,8 +49,7 @@ class App(Frame):
             return lambda: self.annotate(label)
         for index, category in enumerate(config["catslist"]):
             Button(annotation_buttons_frame, text=category, command=make_annotate_func(self, index), highlightbackground="#3E4149").pack(side=LEFT)
-        Button(annotation_buttons_frame, text="Remove annotation", command=self.annotate("", True), highlightbackground="#3E4149").pack(side=LEFT)
-
+        Button(annotation_buttons_frame, text="Remove annotation", command=lambda: self.annotate("", True), highlightbackground="#3E4149").pack(side=LEFT)
 
         annotation_results_frame = Frame(self)
         self.annotation_result = Label(annotation_results_frame, text="No annotation selected yet.")
