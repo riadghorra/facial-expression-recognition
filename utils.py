@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from itertools import product
-
+import torch
 
 def plot_confusion_matrix(cm, display_labels):
-    fig, ax = plt.subplots(figsize=(12, 10))
+    fig, ax = plt.subplots(figsize=(6, 5))
     n_classes = cm.shape[0]
     im_ = ax.imshow(cm, interpolation='nearest', cmap="viridis")
     cmap_min, cmap_max = im_.cmap(0), im_.cmap(256)
@@ -29,3 +29,42 @@ def plot_confusion_matrix(cm, display_labels):
     plt.setp(ax.get_xticklabels(), rotation="vertical")
 
     plt.show()
+
+
+def factorise_emotions(emotions_batch):
+    bad = [0,1,2,4]
+    good = [3]
+    surprise = [5]
+    neutral = [6]
+    def factorise_emotion(emotion):
+        if emotion in bad:
+            return 0
+        elif emotion in good:
+            return 1
+        elif emotion in surprise:
+            return 2
+        elif emotion in neutral:
+            return 3
+    out = torch.zeros(len(emotions_batch))
+    for ligne, emotion in enumerate(emotions_batch):
+        out[ligne] = factorise_emotion(emotion)
+    return out
+    
+    
+
+def factorise_emotions_vectors(emotions_vector_batch):
+    """
+    in : (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)
+    out : (bad=0, good=1, surprise=2, neutral =3)
+    """
+    bad = [0,1,2,4]
+    good = 3
+    surprise = 5
+    neutral = 6
+    out = torch.zeros(len(emotions_vector_batch),4)
+    for ligne, emotions_vector in enumerate(emotions_vector_batch):
+        out[ligne][0] = emotions_vector[bad].sum()
+        out[ligne][1] = emotions_vector[good].sum()
+        out[ligne][2] = emotions_vector[surprise].sum()
+        out[ligne][3] = emotions_vector[neutral].sum()
+    return out

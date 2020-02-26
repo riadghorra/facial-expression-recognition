@@ -98,13 +98,15 @@ def test_on_annotated_csv(annotations_csv_path):
         return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
 
     dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)  # we don't care about the test loss value here.
-    proba, _, acc, cm = evaluate(model, df, preprocess_batch, dummy_weights, DEVICE, compute_cm=True)
+    proba, _, acc, cm1, cm2, acc_fact = evaluate(model, df, preprocess_batch, dummy_weights, DEVICE, compute_cm=True)
 
     print("FINAL ACCURACY: {}".format(acc))
     print("Average predicted proba for right class: {}".format(proba))
     print("Duration on {} test faces: {}s".format(len(df), round(time() - start_time, 2)))
     print("Close the confusion matrix to end the script.")
-    plot_confusion_matrix(cm, config["catslist"])
+    plot_confusion_matrix(cm2, config["catslist"])
+    plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
+    print("Accuracy with grouped classes : {}".format(acc_fact))
 
 
 test_on_annotated_csv("./annotations.csv")
