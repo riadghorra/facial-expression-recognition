@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from itertools import product
+import torch
 
 
 def plot_confusion_matrix(cm, display_labels):
@@ -29,3 +30,17 @@ def plot_confusion_matrix(cm, display_labels):
     plt.setp(ax.get_xticklabels(), rotation="vertical")
 
     plt.show()
+
+
+def dot_product_batch(m1, m2):
+    """
+
+    :param m1: tensor
+    :param m2: tensor
+    :return: vector of dot product of each rows of m1 and rows of m2
+    """
+    return torch.diag(torch.matmul(m1, m2.T))
+
+
+def norm_L2_batch(m):
+    return torch.sqrt(dot_product_batch(m, m))

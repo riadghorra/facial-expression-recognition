@@ -9,7 +9,8 @@ from tqdm import tqdm
 from classifier import FeedForwardNN, vgg16, Custom_vgg
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
-from utils import plot_confusion_matrix
+from utils import *
+import ast
 
 """
 (0=Angry, 1=Disgust, 2=Fear, 3=Happy, 4=Sad, 5=Surprise, 6=Neutral)
@@ -46,7 +47,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
                                                      cooldown=0,
                                                      min_lr=0,
                                                      eps=1e-08)
-    dataloader = make_dataloader(train_dataframe, shuffle=True, drop_last=True)
+    dataloader = make_dataloader(train_dataframe, shuffle=True, drop_last=True, loss_mode=config["loss_mode"])
 
     model.train()
     print("debut du training")
@@ -60,12 +61,12 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
 
-            loss_function = make_loss(emotions_batch, weight)
+            loss_function = make_loss(groundtruth, weight)
 
             model.zero_grad()
             out = model(batch.to(DEVICE))
-            labels = groundtruth.to(DEVICE)
-            loss = loss_function(out, labels)
+            groundtruth = groundtruth.to(DEVICE)
+            loss = loss_function(out, groundtruth)
             loss.backward()
             optimizer.step()
         model.eval()
@@ -107,37 +108,43 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
 
 def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=False):
     with torch.no_grad():
-        dataloader = make_dataloader(dataframe, shuffle=False, drop_last=False)
+        dataloader = make_dataloader(dataframe, shuffle=False, drop_last=False, loss_mode=config["loss_mode"])
         loss = torch.tensor(0.0).to(DEVICE)
         compteur = torch.tensor(0.0).to(DEVICE)
         probasum = torch.tensor(0.0).to(DEVICE)
         acc = torch.tensor(0.0).to(DEVICE)
 
-        probas_pred = torch.tensor([]).to(DEVICE)
         y_pred = torch.tensor([]).to(DEVICE)
         y_true = torch.tensor([]).to(DEVICE)
 
         for pixelstring_batch, emotions_batch in dataloader:
             batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
-            loss_function = make_loss(emotions_batch, weight)
+            loss_function = make_loss(groundtruth, weight)
 
             out = model(batch.to(DEVICE))
-            labels = groundtruth.to(DEVICE)
-            loss += loss_function(out, labels)
+            groundtruth = groundtruth.to(DEVICE)
+            loss += loss_function(out, groundtruth)
             compteur += torch.tensor(1.0).to(DEVICE)
-            #            if config["loss_mode"] == "BCE":
-            #                probasum += (out * labels).sum() / torch.tensor(len(emotions_batch)).to(DEVICE)
-            #                acc += (out.argmax(1) == labels.argmax(1)).float().mean()
-            #            if config["loss_mode"] == "CE":
-            probas_batch = softmax(out)
-            probasum += (torch.tensor(
-                [probas_batch[image_index][classe] for image_index, classe in enumerate(labels)]).sum() / float(
-                len(labels))).to(DEVICE)
-            acc += (probas_batch.argmax(1) == labels).float().mean().to(DEVICE)
-            if compute_cm:
-                probas_pred = torch.cat((probas_pred, probas_batch))
-                y_pred = torch.cat((y_pred, probas_batch.argmax(1).float()))
-                y_true = torch.cat((y_true, labels.float()))
+            if config["loss_mode"] == "BCE":
+                out_norm_batch = norm_L2_batch(out)
+                groundtruth_norm_batch = norm_L2_batch(groundtruth)
+                out_dot_groundtruth_batch = dot_product_batch(out, groundtruth)
+                cosine_similarity_batch = out_dot_groundtruth_batch / (out_norm_batch * groundtruth_norm_batch)
+                probasum += cosine_similarity_batch.mean().to(DEVICE)
+                acc += (out.argmax(1) == groundtruth.argmax(1)).float().mean()
+                if compute_cm:
+                    y_pred = torch.cat((y_pred, out.argmax(1).float()))
+                    y_true = torch.cat((y_true, groundtruth.argmax(1).float()))
+            if config["loss_mode"] == "CE":
+                probas_batch = softmax(out)
+                probasum += (torch.tensor(
+                    [probas_batch[image_index][classe] for image_index, classe in
+                     enumerate(groundtruth)]).sum() / float(
+                    len(groundtruth))).to(DEVICE)
+                acc += (probas_batch.argmax(1) == groundtruth).float().mean().to(DEVICE)
+                if compute_cm:
+                    y_pred = torch.cat((y_pred, probas_batch.argmax(1).float()))
+                    y_true = torch.cat((y_true, groundtruth.float()))
 
         loss_value = float(loss / compteur)
         proba = float(probasum / compteur)
@@ -174,18 +181,23 @@ def make_loss(emotions_batch, weights):
     """
     assert config["loss_mode"] in ["CE", "BCE"], "mode inconnu"
     if config["loss_mode"] == "BCE":
-        loss_weights = torch.FloatTensor([weights[label] for label in emotions_batch])
+        loss_weights = torch.matmul(weights.to(DEVICE), emotions_batch.T.float().to(DEVICE))
         loss_weights = loss_weights.unsqueeze(1)
-        return lambda x: nn.BCELoss(weight=loss_weights).to(DEVICE)(softmax(x))
+        return lambda x, y: nn.BCELoss(weight=loss_weights).to(DEVICE)(softmax(x), y)
     elif config["loss_mode"] == "CE":
         return nn.CrossEntropyLoss(weight=weights).to(DEVICE)
 
 
-def make_dataloader(dataframe, shuffle=False, drop_last=False):
+def make_dataloader(dataframe, shuffle=False, drop_last=False, loss_mode="CE"):
     """
     :param dataframe: columns {config["data_column"]} with pixels and "emotion" for annotation.
     """
-    to_dataloader = [[dataframe[config["data_column"]][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
+    if loss_mode == "CE":
+        to_dataloader = [[dataframe[config["data_column"]][i], dataframe["emotion"][i]] for i in range(len(dataframe))]
+    else:
+        to_dataloader = [[dataframe[config["data_column"]][i], ast.literal_eval(dataframe["emotions_tensor"][i])] for i
+                         in range(len(dataframe))]
+
     return torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=shuffle, drop_last=drop_last)
 
 
@@ -235,4 +247,3 @@ def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
                                                                                                      with_data_aug,
                                                                                                      config[
                                                                                                          "loss_mode"]))
-
