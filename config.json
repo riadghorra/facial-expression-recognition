@@ -6,7 +6,7 @@
   "eval_rate" : 0.3,
   "test_rate" : 0.1,
   "hidden_sizes" : [256,128,64],
-  "sample" : 30000,
+  "sample" : 300,
   "LR" : 0.001,
   "cats" : 7,
   "path_images" : "/Users/scrab/Documents/centrale/2019-facial-emotions/fec/test/",
