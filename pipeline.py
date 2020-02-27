@@ -118,7 +118,7 @@ def crop_cv_img(img, x, y, w, h):
 def crop_csv_dataset(input_csv_path, output_csv_path):
     """
     Adds a column named "face" to the csv dataset with the cropped face for all the dataset, when the face is found.
-    Results:
+    Results on fer:
         {
             ‘imgs_removed’: 11721,
             ‘imgs_kept’: 24167,
@@ -141,13 +141,35 @@ def crop_csv_dataset(input_csv_path, output_csv_path):
                 ‘Neutral’: 4622
             }
         }
+    Results on ferplus:
+        {
+            'imgs_removed': 11387,
+            'imgs_kept': 23886,
+            'imgs_dropped_per_class': {
+                'Angry': 1260,
+                'Disgust': 81,
+                'Fear': 320,
+                'Happy': 2594,
+                'Sad': 2301,
+                'Surprise': 1208,
+                'Neutral': 3623
+            },
+            'imgs_kept_per_class': {
+                'Angry': 2149,
+                'Disgust': 223,
+                'Fear': 696,
+                'Happy': 6853,
+                'Sad': 2550,
+                'Surprise': 3142,
+                'Neutral': 8273
+            }
+        }
     :param input_csv_path: csv dataset path
     :param output_csv_path: where to write the output csv
     :return:
     """
     initial_time = time.time()
     all_data = pd.read_csv(input_csv_path, header=0)
-
     stats = {
         "progress": 0,
         "imgs_removed": 0,
@@ -155,7 +177,7 @@ def crop_csv_dataset(input_csv_path, output_csv_path):
         "imgs_dropped_per_class": {
             label: 0 for label in config["catslist"]
         },
-        "imgs_kept_per_class" : {
+        "imgs_kept_per_class": {
             label: 0 for label in config["catslist"]
         }
     }
@@ -191,6 +213,9 @@ def crop_csv_dataset(input_csv_path, output_csv_path):
     all_data = all_data.apply(crop_face_for_img, args=(stats,), axis=1)
     all_data.dropna(inplace=True)
     all_data["emotion"] = all_data["emotion"].astype(int)
+    for label in config["catslist"]:
+        if label in all_data:
+            all_data[label] = all_data[label].astype(int)
     all_data.to_csv(output_csv_path, index=False)
     print(stats)
 
@@ -264,4 +289,4 @@ def make_video(fps):
 
 # make_video(20)
 
-# crop_csv_dataset("./fer2013.csv", "./faces.csv")
+# crop_csv_dataset("./ferplustensor.csv", "./ferplus_croppedfaces.csv")
