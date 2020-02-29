@@ -169,10 +169,17 @@ class App(Frame):
         is_annotated = np.sum(self.annotations['path'].values == current_img_path) > 0
 
         if not delete:
+            emotions_tensor = [0.] * 7
+            emotions_tensor[label] = 1.
             if is_annotated:
                 self.annotations['emotion'].values[self.annotations['path'].values == current_img_path] = label
+                self.annotations['emotions_tensor'].values[self.annotations['path'].values == current_img_path] = str(emotions_tensor)
             else:
-                self.annotations = self.annotations.append({"emotion": label, "path": current_img_path}, ignore_index=True)
+                self.annotations = self.annotations.append({
+                    "emotion": label,
+                    "path": current_img_path,
+                    "emotions_tensor": str(emotions_tensor)
+                }, ignore_index=True)
         else:
             self.annotations.drop(self.annotations[self.annotations['path'].values == current_img_path].index, inplace=True)
 

@@ -104,9 +104,9 @@ def test_on_annotated_csv(annotations_csv_path):
     print("Average predicted proba for right class: {}".format(proba))
     print("Duration on {} test faces: {}s".format(len(df), round(time() - start_time, 2)))
     print("Close the confusion matrix to end the script.")
-    plot_confusion_matrix(cm2, config["catslist"])
-    plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
     print("Accuracy with grouped classes : {}".format(acc_fact))
+    plot_confusion_matrix(cm1, config["catslist"])
+    plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
 
 
 test_on_annotated_csv("./annotations.csv")
