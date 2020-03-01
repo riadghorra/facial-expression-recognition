@@ -136,5 +136,5 @@ def test_on_annotated_csv(annotations_csv_path):
     plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
 
 
-# test_on_annotated_csv("./annotations.csv")
-test_on_fer_test_set("./fer_datasets/ferplus.csv")
+test_on_annotated_csv("./annotations.csv")
+# test_on_fer_test_set("./fer_datasets/ferplus_cropped.csv")
