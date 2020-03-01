@@ -289,4 +289,3 @@ def make_video(fps):
 
 # make_video(20)
 
-crop_csv_dataset("./fer_datasets/ferplus.csv", "./fer_datasets/ferplus_cropped.csv")

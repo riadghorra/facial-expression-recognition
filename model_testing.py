@@ -41,11 +41,11 @@ def test_on_fer_test_set(fer_path):
     fer = pd.read_csv(fer_path)
     if "attribution" not in fer:
         raise Exception("Fer not split between train/val/test. Please run split_fer script.")
-    fer_test = fer[fer["attribution"] == "test"]
+    fer_test = fer[fer["attribution"] == "test"].reset_index()
 
     model = load_model()
 
-    print("Loaded fer test set and model in {}s".format(time() - start_time))
+    print("Loaded fer test set and model in {}s".format(round(time() - start_time, 2)))
     start_time = time()
 
     def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
@@ -136,4 +136,5 @@ def test_on_annotated_csv(annotations_csv_path):
     plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
 
 
-test_on_annotated_csv("./annotations.csv")
+# test_on_annotated_csv("./annotations.csv")
+test_on_fer_test_set("./fer_datasets/ferplus.csv")
