@@ -35,7 +35,7 @@ softmax = nn.Softmax(dim=1).to(DEVICE)
 # =============================================================================
 # Train
 # =============================================================================
-def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_batch, weight):
+def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preprocess_batch, weight):
     optimizer = optim.Adam(model.parameters(), lr=config["LR"])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                      mode='min',
@@ -74,7 +74,7 @@ def train(model, train_dataframe, test_dataframe, epochs, device, preprocess_bat
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device,
                                                     compute_cm=False)
         scheduler.step(loss_train)
-        proba, loss_test, acc, cm1, cm2, acc_factorised = evaluate(model, test_dataframe, preprocess_batch, weight,
+        proba, loss_test, acc, cm1, cm2, acc_factorised = evaluate(model, quick_eval_dataframe, preprocess_batch, weight,
                                                                    device, compute_cm=True)
         if acc > best_acc:
             torch.save(model.state_dict(), "current_best_model")
@@ -231,15 +231,11 @@ def make_dataloader(dataframe, shuffle=False, drop_last=False, loss_mode="CE"):
 def main(model, preprocess_batch):
     print("creation du dataset")
     all_data = pd.read_csv(config["path"], header=0)
-    if config["sample"] != 0:
-        all_data = all_data[:config["sample"]]
-    n_all = len(all_data)
-    n_eval = int(config["eval_rate"] * n_all)
-    n_test = int(config["test_rate"] * n_eval)
+    n_quick_eval = int(config["quick_eval_rate"] * len(all_data[all_data["attribution"] == "val"]))
 
-    train_dataframe = all_data[n_eval:].reset_index(drop=True)
-    eval_dataframe = all_data[:n_eval]
-    test_dataframe = eval_dataframe[:n_test]
+    train_dataframe = all_data[all_data["attribution"] == "train"]
+    eval_dataframe = all_data[all_data["attribution"] == "val"]
+    quick_eval_dataframe = eval_dataframe[:n_quick_eval]
 
     # weights for loss
     weight = get_weights_for_loss(train_dataframe)
@@ -247,7 +243,7 @@ def main(model, preprocess_batch):
     # train
     print("Starting model training with:")
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
-    model = train(model, train_dataframe, test_dataframe, config["epochs"], DEVICE, preprocess_batch, weight)
+    model = train(model, train_dataframe, quick_eval_dataframe, config["epochs"], DEVICE, preprocess_batch, weight)
     proba, loss_eval, acc, cm = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE, compute_cm=True)
 
     return model, acc, loss_eval, proba, cm

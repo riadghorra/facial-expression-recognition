@@ -36,6 +36,33 @@ def load_model():
     return model
 
 
+def test_on_fer_test_set(fer_path):
+    start_time = time()
+    fer = pd.read_csv(fer_path)
+    if "attribution" not in fer:
+        raise Exception("Fer not split between train/val/test. Please run split_fer script.")
+    fer_test = fer[fer["attribution"] == "test"]
+
+    model = load_model()
+
+    print("Loaded fer test set and model in {}s".format(time() - start_time))
+    start_time = time()
+
+    def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
+        return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+
+    dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)  # we don't care about the test loss value here.
+    proba, _, acc, cm1, cm2, acc_fact = evaluate(model, fer_test, preprocess_batch, dummy_weights, DEVICE, compute_cm=True)
+
+    print("FINAL ACCURACY: {}".format(acc))
+    print("Average predicted proba for right class: {}".format(proba))
+    print("Duration on {} test faces: {}s".format(len(fer_test), round(time() - start_time, 2)))
+    print("Accuracy with grouped classes : {}".format(acc_fact))
+    print("Close the confusion matrices to end the script.")
+    plot_confusion_matrix(cm1, config["catslist"])
+    plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
+
+
 def test_on_folder():
     images = []
     # r=root, d=directories, f = files
