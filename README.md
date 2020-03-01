@@ -37,4 +37,7 @@ Please note that you must have the dataset at the right path (as defined in the 
 the correct `data column` 
 
 ## How to test the model
-TO COMPLETE AVEC L'OUTIL DE CORENTIN
+You can test our model by using one og the two functions in model_testing.py : either 
+by running `test_on_folder` (don't forget to specify folder path under `path_images` in the config file)
+or by running `test_on_anotated_csv` which takes a csv containing images as an input and 
+predicts their facial expression. 
