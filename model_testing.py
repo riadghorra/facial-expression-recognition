@@ -31,7 +31,7 @@ def resize_input_image(pil_img):
 
 
 def load_model():
-    model = Custom_vgg(1, config["cats"], DEVICE)
+    model = Custom_vgg(1, len(config["catslist"]), DEVICE)
     model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
     return model
 

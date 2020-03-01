@@ -192,7 +192,7 @@ def get_weights_for_loss(train_dataframe):
     distinct_emotions = np.sort(train_dataframe["emotion"].unique())
     d = d / (sum(d))
     emotion_freq = 1 / d
-    emotion_freq_complete = [0] * config["cats"]
+    emotion_freq_complete = [0] * len(config["catslist"])
 
     for emotion, frequency in zip(distinct_emotions, emotion_freq):
         emotion_freq_complete[emotion] = frequency
@@ -233,9 +233,9 @@ def main(model, preprocess_batch):
     all_data = pd.read_csv(config["path"], header=0)
     n_quick_eval = int(config["quick_eval_rate"] * len(all_data[all_data["attribution"] == "val"]))
 
-    train_dataframe = all_data[all_data["attribution"] == "train"]
-    eval_dataframe = all_data[all_data["attribution"] == "val"]
-    quick_eval_dataframe = eval_dataframe[:n_quick_eval]
+    train_dataframe = all_data[all_data["attribution"] == "train"].reset_index()
+    eval_dataframe = all_data[all_data["attribution"] == "val"].reset_index()
+    quick_eval_dataframe = eval_dataframe[:n_quick_eval].reset_index()
 
     # weights for loss
     weight = get_weights_for_loss(train_dataframe)
@@ -260,7 +260,7 @@ def main_vgg16():
 
 
 def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
-    model = Custom_vgg(1, config["cats"], DEVICE)
+    model = Custom_vgg(1, len(config["catslist"]), DEVICE)
     if start_from_best_model:
         print("Loading model from current best model")
         model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
