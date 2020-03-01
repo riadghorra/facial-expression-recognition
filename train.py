@@ -167,7 +167,7 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=Fals
                     y_pred = torch.cat((y_pred, probas_batch.argmax(1).float()))
                     y_true = torch.cat((y_true, groundtruth.float()))
                     acc_factorised += (factorise_emotions_vectors(probas_batch).argmax(1) == factorise_emotions(
-                        groundtruth).argmax(1)).float().mean().to(
+                        groundtruth).argmax(0)).float().mean().to(
                         DEVICE)
 
         loss_value = float(loss / compteur)
