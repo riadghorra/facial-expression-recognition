@@ -70,7 +70,6 @@ def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preproce
             loss = loss_function(out, groundtruth)
             loss.backward()
             optimizer.step()
-        model.eval()
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device,
                                                     compute_cm=False)
         scheduler.step(loss_train)
@@ -123,6 +122,7 @@ def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preproce
 
 def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=False):
     with torch.no_grad():
+        model.eval()
         dataloader = make_dataloader(dataframe, shuffle=False, drop_last=False, loss_mode=config["loss_mode"])
         loss = torch.tensor(0.0).to(DEVICE)
         compteur = torch.tensor(0.0).to(DEVICE)
