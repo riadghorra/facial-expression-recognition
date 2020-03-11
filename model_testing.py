@@ -31,9 +31,36 @@ def resize_input_image(pil_img):
 
 
 def load_model():
-    model = Custom_vgg(1, config["cats"], DEVICE)
+    model = Custom_vgg(1, len(config["catslist"]), DEVICE)
     model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
     return model
+
+
+def test_on_fer_test_set(fer_path):
+    start_time = time()
+    fer = pd.read_csv(fer_path)
+    if "attribution" not in fer:
+        raise Exception("Fer not split between train/val/test. Please run split_fer script.")
+    fer_test = fer[fer["attribution"] == "test"].reset_index()
+
+    model = load_model()
+
+    print("Loaded fer test set and model in {}s".format(round(time() - start_time, 2)))
+    start_time = time()
+
+    def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
+        return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+
+    dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)  # we don't care about the test loss value here.
+    proba, _, acc, cm1, cm2, acc_fact = evaluate(model, fer_test, preprocess_batch, dummy_weights, DEVICE, compute_cm=True)
+
+    print("FINAL ACCURACY: {}".format(acc))
+    print("Average predicted proba for right class: {}".format(proba))
+    print("Duration on {} test faces: {}s".format(len(fer_test), round(time() - start_time, 2)))
+    print("Accuracy with grouped classes : {}".format(acc_fact))
+    print("Close the confusion matrices to end the script.")
+    plot_confusion_matrix(cm1, config["catslist"])
+    plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
 
 
 def test_on_folder():
@@ -46,7 +73,7 @@ def test_on_folder():
 
     results_df = pd.DataFrame()
 
-    IMG_TO_TEST = 200
+    IMG_TO_TEST = 30
     i = 0
 
     for path in images:
@@ -80,11 +107,28 @@ def test_on_annotated_csv(annotations_csv_path):
     print("Loading annotations...")
     df = pd.read_csv(annotations_csv_path)
     pixels = []
-    for path in df["path"].values:
+    imgs_with_detected_face = 0
+
+    for i, path in enumerate(df["path"].values):
+        if i % 20 == 0:
+            print(i)
+
         image = np.array(pl.Image.open(path))
-        pixels_list = image.flatten().tolist()
-        pixels.append(" ".join(map(str, pixels_list)))
+
+        cv_img = np.array(image)
+        [face_coords] = crop_faces([cv_img])
+        if face_coords is not None:
+            imgs_with_detected_face += 1
+            (x, y, w, h) = face_coords
+            face_image = crop_cv_img(cv_img, x, y, w, h)
+            pil_face_image = pl.Image.fromarray(face_image).resize(config["resolution"])
+
+            pixels_list = np.array(pil_face_image).flatten().tolist()
+            pixels.append(" ".join(map(str, pixels_list)))
+        else:
+            df.drop(index=i, inplace=True)
     df[config["data_column"]] = pixels
+    df.reset_index(inplace=True)
 
     print("Loaded annotations in {}s".format(round(time() - start_time, 2)))
     start_time = time()
@@ -102,11 +146,9 @@ def test_on_annotated_csv(annotations_csv_path):
 
     print("FINAL ACCURACY: {}".format(acc))
     print("Average predicted proba for right class: {}".format(proba))
-    print("Duration on {} test faces: {}s".format(len(df), round(time() - start_time, 2)))
+    print("Duration on {} test faces: {}s".format(imgs_with_detected_face, round(time() - start_time, 2)))
     print("Close the confusion matrix to end the script.")
     print("Accuracy with grouped classes : {}".format(acc_fact))
     plot_confusion_matrix(cm1, config["catslist"])
     plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
 
-
-test_on_annotated_csv("./annotations.csv")

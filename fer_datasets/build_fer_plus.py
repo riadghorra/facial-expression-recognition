@@ -1,12 +1,9 @@
 import pandas as pd
-import torch
-import json
 
-with open('C:/Users/Riad Ghorra/PycharmProjects/2019-facial-emotions/config.json') as json_file:
-    config = json.load(json_file)
+fer_path = "/Users/scrab/Documents/centrale/2019-facial-emotions/fer_datasets/fer.csv"
+fer_plus_path = "/Users/scrab/Documents/centrale/2019-facial-emotions/fer_datasets/fer_plus_labels.csv"
 
-fer_path = "C:/Users/Riad Ghorra/PycharmProjects/2019-facial-emotions/fer2013.csv"
-fer_plus_path = "C:/Users/Riad Ghorra/PycharmProjects/2019-facial-emotions/ferplus/fer_plus_labels.csv"
+labels = ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
 
 
 def merge_ferplus_labels(original_df_path, new_labels_path):
@@ -32,7 +29,7 @@ def drop_bad_rows(df):
     df['Max'] = df[["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral", 'contempt', 'unknown']].idxmax(
         axis=1)
     df = df[~((df["Max"] == "unknown") | (df["Max"] == "contempt"))].reset_index(drop=True)
-    df["emotion"] = df["Max"].map(config["catslist"].index)
+    df["emotion"] = df["Max"].map(labels.index)
 
     return df.drop(["Max", "Usage", "unknown", "contempt", "NF"], axis=1)
 
@@ -52,5 +49,5 @@ def build_emotion_tensor(df, emotions):
 
 
 ferplus = drop_bad_rows(merge_ferplus_labels(fer_path, fer_plus_path))
-fer_plus_tensor = build_emotion_tensor(ferplus, config["catslist"])
-fer_plus_tensor.to_csv("ferplustensor.csv", index=False)
+fer_plus_tensor = build_emotion_tensor(ferplus, labels)
+fer_plus_tensor.to_csv("./fer_datasets/ferplustensor.csv", index=False)
