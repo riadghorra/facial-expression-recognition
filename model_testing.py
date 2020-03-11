@@ -7,7 +7,7 @@ import os
 import pandas as pd
 import numpy as np
 
-from dataset_tools import preprocess_batch_custom_vgg
+from dataset_tools import preprocess_batch_custom_vgg, string_to_pilimage
 from pipeline import crop_faces, crop_cv_img
 from train import evaluate, DEVICE, config
 from utils import plot_confusion_matrix
@@ -122,8 +122,10 @@ def test_on_annotated_csv(annotations_csv_path):
             (x, y, w, h) = face_coords
             face_image = crop_cv_img(cv_img, x, y, w, h)
             pil_face_image = pl.Image.fromarray(face_image).resize(config["resolution"])
+            pil_face_image = transforms.Grayscale(num_output_channels=1)(pil_face_image)
 
             pixels_list = np.array(pil_face_image).flatten().tolist()
+
             pixels.append(" ".join(map(str, pixels_list)))
         else:
             df.drop(index=i, inplace=True)
