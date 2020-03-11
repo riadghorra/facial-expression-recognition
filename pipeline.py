@@ -41,22 +41,6 @@ def load_cv_imgs(paths):
     return imgs
 
 
-def load_cv_images_from_fer():
-    """
-    :return: list of opencv images from the fer csv file.
-    """
-    cv_imgs = []
-    all_data = pd.read_csv(config["path"], header=0, nrows=30000)
-    for i in range(30000):
-        pixels = all_data.loc[i]['pixels']
-        pil_img = string_to_pilimage(pixels)
-        cv_imgs.append(np.array(pil_img))
-
-    print("loaded images from csv")
-
-    return cv_imgs
-
-
 def crop_faces(cv_imgs):
     """
     Return an array of coordinates of faces, one face per image.
