@@ -4,10 +4,10 @@ import time
 import cv2
 import os
 import json
-from PIL import Image
 import pandas as pd
 import numpy as np
 from torchvision.transforms import transforms
+import PIL as pl
 
 from classifier import Custom_vgg
 from dataset_tools import string_to_pilimage
@@ -41,7 +41,7 @@ def load_cv_imgs(paths):
     return imgs
 
 
-def crop_faces(cv_imgs):
+def crop_faces(cv_imgs, only_one=True):
     """
     Return an array of coordinates of faces, one face per image.
     If none or several faces were found on an image, the coordinates for this image are None.
@@ -78,19 +78,22 @@ def crop_faces(cv_imgs):
             image,
             scaleFactor=1.01,
             minNeighbors=3,
-            minSize=(20, 20)
+            minSize=(200, 200)
         )
 
-        if len(faces) == 1:
-            img_with_one_face += 1
-            (x, y, w, h) = faces[0]
-            faces_coords.append((x, y, w, h))
-        else:
-            faces_coords.append(None)
-            if len(faces) == 0:
-                img_with_no_face += 1
+        if only_one:
+            if len(faces) == 1:
+                img_with_one_face += 1
+                (x, y, w, h) = faces[0]
+                faces_coords.append((x, y, w, h))
             else:
-                img_with_several_faces += 1
+                faces_coords.append(None)
+                if len(faces) == 0:
+                    img_with_no_face += 1
+                else:
+                    img_with_several_faces += 1
+        else:
+            faces_coords.append(faces)
 
     return faces_coords
 
@@ -248,7 +251,7 @@ def make_video(fps):
                     cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0))
 
                     # compute model predictions
-                    pil_frame = Image.fromarray(frame)
+                    pil_frame = pl.Image.fromarray(frame)
                     pil_frame = pil_frame.resize(config["resolution"])  # TODO add that in pre-processing
                     x = pre_process(pil_frame).unsqueeze(0)
                     predictions = model.predict_single(x)
@@ -271,5 +274,110 @@ def make_video(fps):
     cv2.destroyAllWindows()
 
 
-# make_video(20)
+def predict_for_frame(model, cv_img):
+    """
+    Crop face on img, preprocess, make prediction
+    If several face on image, chose one.
+    :return: [
+        {"prediction": prediction vector, "position": (x, y, w, h)}
+    ]
+    """
+    faces = crop_faces([cv_img], only_one=False)[0]
+
+    if len(faces) == 0:
+        return []
+
+    pre_processing = transforms.Compose([
+        transforms.Grayscale(num_output_channels=1),
+        transforms.Resize(tuple(config["resolution"])),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5]),
+    ])
+
+    pre_processed_faces = []
+    faces_coords = []
+    for face in faces:
+        (x, y, w, h) = face
+        face_cv = crop_cv_img(cv_img, x, y, w, h)
+        face_pil = pre_processing(pl.Image.fromarray(face_cv))
+        pre_processed_faces.append(face_pil)
+        faces_coords.append((x, y, w, h))
+
+    x = torch.stack(pre_processed_faces)
+    predictions = torch.nn.Softmax(dim=1)(model.forward(x))
+
+    output = []
+
+    for prediction, coords in zip(predictions, faces_coords):
+        output.append({
+            "prediction": prediction,
+            "position": coords
+        })
+
+    return output
+
+
+def get_emotions_to_display_from_prediction(predictions, top=3):
+    """
+
+    :param predictions: proba prediction vector
+    :param top: number of emotions to return (<=7)
+    :return: [
+        ("Emotion 1", proba),
+        ("Emotion 2", proba),
+        ("Emotion 3", proba),
+    ]
+    """
+
+    with_label = [(config["catslist"][i], proba) for i, proba in enumerate(predictions)]
+    ordered = sorted(with_label, key=lambda x: x[1], reverse=True)
+
+    return ordered[:top]
+
+
+def display_emotions(frame, emotions):
+    """
+    :param frame: open cv image frame.
+    :param emotions: [
+        [
+            ("Emotion 1", proba),
+            ("Emotion 2", proba),
+            ...
+            ("Emotion n", proba),
+        ] # first face
+    ]
+    :return: new annotated open cv frame
+    """
+
+
+    pass
+
+
+def process_frame(model, frame):
+    """
+    Call predict_for_frame, get_emotions_to_display_from_prediction and display_emotions
+    to process frame end to end.
+    :return: processed frame
+    """
+    pass
+
+
+def test():
+    img = np.array(pl.Image.open("./test.jpg"))
+    with torch.no_grad():
+        model = Custom_vgg(1, len(config["catslist"]), torch.device("cpu"))
+        model.load_state_dict(torch.load(config["current_best_model"], map_location=torch.device("cpu")))
+        model.eval()
+
+        out = predict_for_frame(model, img)
+
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+    for i, output in enumerate(out):
+        predictions, (x, y, w, h) = output.values()
+        cv2.rectangle(img, (x, y), (x + w, y + h), colors[i])
+        print(colors[i], predictions)
+        print(get_emotions_to_display_from_prediction(predictions))
+    pl.Image.fromarray(img).show()
+
+test()
 
