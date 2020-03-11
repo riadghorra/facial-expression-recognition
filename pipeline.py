@@ -237,7 +237,7 @@ def make_video(fps):
         (int(cap.get(3)), int(cap.get(4)))
     )
 
-    model = Custom_vgg(1, config["cats"], device=torch.device('cpu'))
+    model = Custom_vgg(1, len(config["catslist"]), device=torch.device('cpu'))
     model.load_state_dict(torch.load(config["current_best_model"], map_location=torch.device('cpu')))
 
     pre_process = transforms.Compose(
@@ -289,4 +289,3 @@ def make_video(fps):
 
 # make_video(20)
 
-# crop_csv_dataset("./ferplustensor.csv", "./ferplus_croppedfaces.csv")
