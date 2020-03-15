@@ -12,7 +12,7 @@ pip install opencv-contrib-python==3.4.2.16
 """
 
 class DenseDetector(): 
-    def __init__(self, step_size=20, feature_scale=20, img_bound=20): 
+    def __init__(self, step_size=12, feature_scale=12, img_bound=6): 
         self.step = step_size
         self.feature_scale = feature_scale
         self.img_bound = img_bound
@@ -57,7 +57,10 @@ if __name__=='__main__':
     input_image_dense = np.copy(input_image)
     input_image_sift = np.copy(input_image)
 
-    keypoints = DenseDetector(20,20,5).detect_keypoints(input_image)
+    dense_detector = DenseDetector()
+    keypoints = dense_detector.detect_keypoints(input_image)
+    kp, des = dense_detector.compute_descriptors(input_image)
+    print(f'size of the descriptors: {des.shape}')
     input_image_dense = cv2.drawKeypoints(input_image_dense, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS) 
 
     plt.imshow(input_image_dense,interpolation='nearest')
