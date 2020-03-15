@@ -2,6 +2,7 @@ from dataset_tools import string_to_pilimage
 from train import config
 import numpy as np
 import pandas as pd
+import cv2
 
 """
 Load Images from FER.
@@ -35,10 +36,13 @@ def load_cv_images_from_fer(output_type, nrows=None):
 
 
 def show_first_images():
-    imgs = load_cv_images_from_fer("PIL", nrows=3)
+    imgs = load_cv_images_from_fer("CV", nrows=3)
 
     for img in imgs:
-        img.show()
+        sift = cv2.xfeatures2d.SIFT_create()
+        kp, des = sift.detectAndCompute(img, None)
+        print(len(kp), des.shape)
+        # img.show()
 
 
 show_first_images()
