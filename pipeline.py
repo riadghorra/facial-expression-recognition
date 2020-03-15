@@ -335,7 +335,7 @@ def get_emotions_to_display_from_prediction(predictions, top=3):
     return ordered[:top]
 
 
-def display_emotions(frame, emotions, coords):
+def display_rectangles_and_emotions(frame, emotions, coords):
     """
     :param frame: open cv image frame.
     :param emotions: [
@@ -352,7 +352,9 @@ def display_emotions(frame, emotions, coords):
     :return: new annotated open cv frame
     """
     out = frame
-    for emotions_probas, (x,y,w,h) in zip(emotions,coords):
+    for emotions_probas, (x, y, w, h) in zip(emotions, coords):
+        cv2.rectangle(out, (x, y), (x + w, y + h), (0, 60, 200))
+
         for index, (emotion, proba) in enumerate(emotions_probas):
             text = emotion + ": {}%".format(round(float(100*proba)))
             cv2.putText(out,
@@ -367,29 +369,14 @@ def display_emotions(frame, emotions, coords):
     return out
 
 
-
 def process_frame(model, frame):
     """
-    Call predict_for_frame, get_emotions_to_display_from_prediction and display_emotions
+    Call predict_for_frame, get_emotions_to_display_from_prediction and display_rectangles_and_emotions
     to process frame end to end.
     :return: processed frame
     """
     predictions = predict_for_frame(model, frame)
     coords = [prediction["position"] for prediction in predictions]
     emotions_to_display = [get_emotions_to_display_from_prediction(prediction["prediction"]) for prediction in predictions ]
-    out = display_emotions(frame, emotions_to_display, coords)
+    out = display_rectangles_and_emotions(frame, emotions_to_display, coords)
     return out
-    
-    
-"""
-test pour une image
-def test():
-    img = np.array(pl.Image.open("/Users/arthur/Desktop/test.jpg"))
-    with torch.no_grad():
-        model = Custom_vgg(1, len(config["catslist"]), torch.device("cpu"))
-        model.load_state_dict(torch.load(config["current_best_model"], map_location=torch.device("cpu")))
-        model.eval()
-        out = process_frame(model, img)
-        return pl.Image.fromarray(out).show()
-"""
-
