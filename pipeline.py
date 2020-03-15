@@ -7,6 +7,7 @@ import json
 import pandas as pd
 import numpy as np
 from torchvision.transforms import transforms
+import face_recognition
 import PIL as pl
 
 from classifier import Custom_vgg
@@ -41,7 +42,7 @@ def load_cv_imgs(paths):
     return imgs
 
 
-def crop_faces(cv_imgs, only_one=True):
+def crop_faces(cv_imgs, only_one=True, using_bundled_library=False):
     """
     Return an array of coordinates of faces, one face per image.
     If none or several faces were found on an image, the coordinates for this image are None.
@@ -69,6 +70,14 @@ def crop_faces(cv_imgs, only_one=True):
     :return: array of coordinates of the face for each input image (which can contain be None values).
     """
     faces_coords = []
+
+    if using_bundled_library:
+        for image in cv_imgs:
+            coords = face_recognition.face_locations(image)
+            coords = [(y2, x1, y1 - y2, x2 - x1) for x1, y1, x2, y2 in coords]
+            faces_coords.append(coords)
+        return faces_coords
+
     img_with_several_faces = 0
     img_with_no_face = 0
     img_with_one_face = 0
@@ -282,7 +291,7 @@ def predict_for_frame(model, cv_img):
         {"prediction": prediction vector, "position": (x, y, w, h)}
     ]
     """
-    faces = crop_faces([cv_img], only_one=False)[0]
+    faces = crop_faces([cv_img], only_one=False, using_bundled_library=True)[0]
 
     if len(faces) == 0:
         return []
