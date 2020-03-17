@@ -1,6 +1,6 @@
 {
-  "path" : "/content/drive/My Drive/Projet Illuin OSY/datasets/csv/faces.csv",
-  "data_column": "face",
+  "path" : "C:/Users/Riad Ghorra/PycharmProjects/facial-expression-recognition/fer_datasets/ferplus.csv",
+  "data_column": "pixels",
   "BATCH" : 64,
   "epochs" : 80,
   "LR" : 0.001,
