@@ -26,6 +26,7 @@ def pixelstring_to_numpy(string, flatten=False, integer_pixels=False):
 
     return out / 255.0
 
+
 def descriptorstring_to_numpy(string):
     pixels = string.split()
     out = np.array([float(i) for i in pixels])
@@ -155,15 +156,6 @@ def preprocess_batch_hybrid(pixelstring_batch, descriptors_batch, emotions_batch
 
     pre_process_pixels = transforms.Compose(transformations_pixels)
 
-    # Transformations applied to sift descriptors
-    transformations_sift = [
-        # pre-processing
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0], std=[0.5])
-    ]
-
-    pre_process_sift = transforms.Compose(transformations_sift)
-
     pixels_batch = torch.stack(
         tuple([
             pre_process_pixels(string_to_pilimage(string)) for string in pixelstring_batch
@@ -172,7 +164,7 @@ def preprocess_batch_hybrid(pixelstring_batch, descriptors_batch, emotions_batch
 
     sift_batch = torch.stack(
         tuple([
-            pre_process_sift(descriptorstring_to_numpy(string)) for string in descriptors_batch
+            torch.tensor(descriptorstring_to_numpy(string)) for string in descriptors_batch
         ])
     )
 
