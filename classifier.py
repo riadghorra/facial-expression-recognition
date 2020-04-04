@@ -118,8 +118,8 @@ class HybridNetwork(nn.Module):
         self.flat = torch.nn.Flatten().to(self.device)
 
         # Sift Block
-        self.FC2048_sift = nn.Sequential(nn.Linear(2048, 2048), nn.ReLU(True), nn.Dropout(0.33)).to(self.device)
-        self.FC1024_sift = nn.Sequential(nn.Linear(2048, 1024), nn.ReLU(True), nn.Dropout(0.33)).to(self.device)
+        self.FC2048_sift = nn.Sequential(nn.Linear(2048, 2048), nn.ReLU(True), nn.Dropout(0.5)).to(self.device)
+        self.FC1024_sift = nn.Sequential(nn.Linear(2048, 1024), nn.ReLU(True), nn.Dropout(0.5)).to(self.device)
 
         # concat sift and cnn
         self.concat_hybrid = lambda a, b: torch.cat([a, b], dim=1)
