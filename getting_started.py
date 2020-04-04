@@ -40,5 +40,3 @@ def show_first_images():
     for img in imgs:
         img.show()
 
-
-show_first_images()
