@@ -247,8 +247,11 @@ def main(model, preprocess_batch):
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
     model = train_hybrid(model, train_dataframe, quick_eval_dataframe, config["epochs"], DEVICE, preprocess_batch,
                          weight)
-    proba, loss_eval, acc, cm = evaluate_hybrid(model, eval_dataframe, preprocess_batch, weight, DEVICE,
+    try:
+        proba, loss_eval, acc, cm = evaluate_hybrid(model, eval_dataframe, preprocess_batch, weight, DEVICE,
                                                 compute_cm=True)
+    except ValueError:
+        pass
 
     return model, acc, loss_eval, proba, cm
 
