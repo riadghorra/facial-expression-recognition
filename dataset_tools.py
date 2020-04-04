@@ -164,7 +164,7 @@ def preprocess_batch_hybrid(pixelstring_batch, descriptors_batch, emotions_batch
 
     sift_batch = torch.stack(
         tuple([
-            torch.tensor(descriptorstring_to_numpy(string)) for string in descriptors_batch
+            torch.FloatTensor(descriptorstring_to_numpy(string)) for string in descriptors_batch
         ])
     )
 
