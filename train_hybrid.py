@@ -253,7 +253,7 @@ def main(model, preprocess_batch):
     except ValueError:
         proba, loss_eval, acc = evaluate_hybrid(model, eval_dataframe, preprocess_batch, weight, DEVICE,
                                                     compute_cm=False)
-        return model, acc, loss_eval, proba, cm
+        return model, acc, loss_eval, proba
 
     return model, acc, loss_eval, proba, cm
 
