@@ -78,6 +78,7 @@ def train_hybrid(model, train_dataframe, quick_eval_dataframe, epochs, device, p
                                                                           weight, device, compute_cm=True)
         if acc > best_acc:
             torch.save(model.state_dict(), "current_best_model")
+            print("New best accuracy is ", acc)
         model.train()
         print()
         print("Epoch number : ", epoch + 1)
