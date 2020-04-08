@@ -84,4 +84,4 @@ def apply_detector_to_dataset():
     with open('sift_descriptors/ferplus_sift_descriptors.pkl', 'wb') as f:
         pickle.dump(sift_descriptors, f)
 
-apply_detector_to_dataset()
+# apply_detector_to_dataset()
