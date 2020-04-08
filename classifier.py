@@ -201,7 +201,6 @@ class CustomHybridNetwork(nn.Module):
         x = self.pool1(x)
 
         # SIFT block
-        print(sift.shape)
         sift = self.pool1_sift(sift)
         sift = self.convs1_sift(sift)
 
