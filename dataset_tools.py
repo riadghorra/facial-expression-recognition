@@ -168,7 +168,7 @@ def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data
         detector = DenseDetector()
 
     descriptors_batch = torch.stack(tuple([
-        torch.FloatTensor(detector.compute_descriptors(im)[1].flatten()) for im in flipped_imgs
+        torch.FloatTensor(detector.compute_descriptors(np.array(im))[1].flatten()) for im in flipped_imgs
     ]))
 
     pixels_batch = torch.stack(tuple([
