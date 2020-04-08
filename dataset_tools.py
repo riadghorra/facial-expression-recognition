@@ -27,6 +27,12 @@ def pixelstring_to_numpy(string, flatten=False, integer_pixels=False):
     return out / 255.0
 
 
+def descriptorstring_to_numpy(string):
+    pixels = string.split()
+    out = np.array([float(i) for i in pixels])
+    return out
+
+
 def pixelstring_to_torchtensor_feedforward(string, datatype=torch.float32, flatten=False, device=torch.device('cpu')):
     return torch.tensor(pixelstring_to_numpy(string, flatten=flatten), dtype=datatype).to(device)
 
@@ -133,6 +139,40 @@ def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_
     return batch, groundtruth
 
 
+def preprocess_batch_hybrid(pixelstring_batch, descriptors_batch, emotions_batch, DEVICE, with_data_aug=True,
+                            loss_mode="BCE"):
+    # Transformations applied to images
+    transformations_pixels = [
+        # pre-processing
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0], std=[0.5])
+    ]
+    if with_data_aug:
+        transformations_pixels = [
+                                     # data augmentation
+                                     transforms.RandomHorizontalFlip(p=0.5)
+                                 ] + transformations_pixels
+
+    pre_process_pixels = transforms.Compose(transformations_pixels)
+
+    pixels_batch = torch.stack(
+        tuple([
+            pre_process_pixels(string_to_pilimage(string)) for string in pixelstring_batch
+        ])
+    )
+
+    sift_batch = torch.stack(
+        tuple([
+            torch.FloatTensor(descriptorstring_to_numpy(string)) for string in descriptors_batch
+        ])
+    )
+
+    groundtruth = emotion_batch_totensor(emotions_batch, loss_mode)
+
+    return pixels_batch, sift_batch, groundtruth
+
+
 def preprocess_batch_vgg16(pixelstring_batch, emotions_batch, DEVICE):
     groundtruth = emotion_batch_totensor(emotions_batch)
     batch = pixelstring_batch_totensor(pixelstring_batch, lambda x: pixelstring_to_tensor_vgg16(x, device=DEVICE))
@@ -146,4 +186,3 @@ def preprocess_batch_feed_forward(pixelstring_batch, emotions_batch, DEVICE):
                                        lambda x: pixelstring_to_torchtensor_feedforward(x, flatten=True, device=DEVICE))
 
     return batch, groundtruth
-
