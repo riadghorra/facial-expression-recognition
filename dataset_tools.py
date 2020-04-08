@@ -146,7 +146,6 @@ def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_
 
 def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
                             loss_mode="BCE"):
-
     transforms_flip = []
     if with_data_aug:
         transforms_flip = [transforms.RandomHorizontalFlip(p=0.5)]
@@ -169,6 +168,50 @@ def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data
     descriptors = np.vstack([x.flatten() for x in descriptors if x is not None])
 
     descriptors_batch = torch.stack(tuple([torch.FloatTensor(d) for d in descriptors]))
+
+    pixels_batch = torch.stack(tuple([
+        pre_process_normalize(im) for im in flipped_imgs
+    ]))
+
+    groundtruth = emotion_batch_totensor(emotions_batch, loss_mode)
+
+    return pixels_batch, descriptors_batch, groundtruth
+
+
+def preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
+                            loss_mode="BCE"):
+    transforms_flip = []
+    if with_data_aug:
+        transforms_flip = [transforms.RandomHorizontalFlip(p=0.5)]
+
+    transforms_normalize = [
+        # pre-processing
+        transforms.Grayscale(num_output_channels=1),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0], std=[0.5])
+    ]
+
+    pre_process_flip = transforms.Compose(transforms_flip)
+    pre_process_normalize = transforms.Compose(transforms_normalize)
+
+    flipped_imgs = [pre_process_flip(string_to_pilimage(string)) for string in pixelstring_batch]
+
+    detector = SIFTDetector()
+
+    kp_descriptors = [detector.compute_descriptors(np.array(im)) for im in flipped_imgs]
+
+    descriptor_tensors = []
+    for img_key_points, img_descriptors in kp_descriptors:
+        img_tensor = torch.zeros([130, 48, 48], dtype=torch.float)
+        for key_point, descriptor in zip(img_key_points, img_descriptors):
+            descriptor_with_kp_info = np.concatenate(([key_point.size, key_point.angle], descriptor))
+            # OpenCV coordinates are (col, row) and PIL uses (row, col).
+            img_tensor[:, round(key_point.pt[1]), round(key_point.pt[0])] = \
+                torch.tensor(descriptor_with_kp_info, dtype=torch.float)
+
+        descriptor_tensors.append(img_tensor)
+
+    descriptors_batch = torch.stack(tuple(descriptor_tensors))
 
     pixels_batch = torch.stack(tuple([
         pre_process_normalize(im) for im in flipped_imgs
