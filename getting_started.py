@@ -1,7 +1,10 @@
-from train import config
 import numpy as np
 import pandas as pd
 import PIL as pl
+import json
+
+with open('config.json') as json_file:
+    config = json.load(json_file)
 
 """
 Load Images from FER.
