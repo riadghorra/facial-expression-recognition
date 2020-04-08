@@ -154,3 +154,69 @@ class HybridNetwork(nn.Module):
         concat = self.FC256(concat)
         concat = self.FCOUT(concat)
         return concat
+
+
+class CustomHybridNetwork(nn.Module):
+    def __init__(self, device=torch.device('cpu')):
+        super(CustomHybridNetwork, self).__init__()
+        self.device = device
+
+        # Image block input: 1*48*48
+        self.convs1 = nn.Sequential(Convblock(1, 32),
+                                    Convblock(32, 32)).to(self.device)
+        self.pool1 = nn.MaxPool2d(2, stride=2).to(self.device)
+        # Image block output: 32*24*24
+
+        # SIFT block input: 130*48*48
+        self.pool1_sift = nn.MaxPool2d(2, stride=2).to(self.device)
+        self.convs1_sift = nn.Sequential(Convblock(130, 32),
+                                         Convblock(32, 32)).to(self.device)
+        # SIFT block output: 32*24*24
+
+        # Merge input: 32*24*24, 32*24*24
+        self.merge = lambda a, b: torch.cat([a, b], dim=1)
+        # Merge output: 64*24*24
+
+        self.convs2 = nn.Sequential(Convblock(64, 64),
+                                    Convblock(64, 64)).to(self.device)
+
+        self.pool2 = nn.MaxPool2d(2, stride=2).to(self.device)
+        self.convs3 = nn.Sequential(Convblock(64, 128),
+                                    Convblock(128, 128),
+                                    Convblock(128, 128)).to(self.device)
+
+        self.pool3 = nn.MaxPool2d(2, stride=2).to(self.device)
+        self.flat = torch.nn.Flatten().to(self.device)
+
+        # Hybrid Block
+        self.FC1024 = nn.Sequential(nn.Linear(4608, 1024), nn.ReLU(True), nn.Dropout(0.5)).to(
+            self.device)
+        self.FC512 = nn.Sequential(nn.Linear(1024, 512), nn.ReLU(True), nn.Dropout(0.5)).to(self.device)
+        self.FC256 = nn.Sequential(nn.Linear(512, 256), nn.ReLU(True)).to(self.device)
+        self.FCOUT = nn.Sequential(nn.Linear(256, 7)).to(self.device)
+
+    def forward(self, x, sift):
+        # Image block
+        x = self.convs1(x)
+        x = self.pool1(x)
+
+        # SIFT block
+        print(sift.shape)
+        sift = self.pool1_sift(sift)
+        sift = self.convs1_sift(sift)
+
+        # Merge
+        combined = self.merge(x, sift)
+
+        # Hybrid block
+        combined = self.convs2(combined)
+        combined = self.pool2(combined)
+        combined = self.convs3(combined)
+        combined = self.pool3(combined)
+        combined = self.flat(combined)
+        combined = self.FC1024(combined)
+        combined = self.FC512(combined)
+        combined = self.FC256(combined)
+        combined = self.FCOUT(combined)
+
+        return combined
