@@ -167,9 +167,10 @@ def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data
     if config["sift_type"] == "dense":
         detector = DenseDetector()
 
-    descriptors_batch = torch.stack(tuple([
-        torch.FloatTensor(detector.compute_descriptors(np.array(im))[1].flatten()) for im in flipped_imgs
-    ]))
+    descriptors = [detector.compute_descriptors(np.array(im))[1] for im in flipped_imgs]
+    descriptors = np.vstack([x.flatten() for x in descriptors if x is not None])
+
+    descriptors_batch = torch.stack(tuple([torch.FloatTensor(d) for d in descriptors]))
 
     pixels_batch = torch.stack(tuple([
         pre_process_normalize(im) for im in flipped_imgs
