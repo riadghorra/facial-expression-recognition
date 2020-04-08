@@ -63,6 +63,7 @@ def bulk_extract_features(images, detector):
 
     return descriptors
 
+
 def display_image_with_keypoints(image, detector):
     keypoints = detector.detect_keypoints(image)
     im_with_kp = cv2.drawKeypoints(image, keypoints, None, flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)

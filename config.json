@@ -11,5 +11,5 @@
   "resolution" : [48,48],
   "current_best_model": "./models/ferplus_cropped_model.pt",
   "loss_mode" : "BCE",
-  "sift_type" : "sift"
+  "sift_type" : "dense"
 }

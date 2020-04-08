@@ -163,9 +163,7 @@ def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data
 
     flipped_imgs = [pre_process_flip(string_to_pilimage(string)) for string in pixelstring_batch]
 
-    detector = SIFTDetector()
-    if config["sift_type"] == "dense":
-        detector = DenseDetector()
+    detector = DenseDetector()
 
     descriptors = [detector.compute_descriptors(np.array(im))[1] for im in flipped_imgs]
     descriptors = np.vstack([x.flatten() for x in descriptors if x is not None])
