@@ -3,10 +3,11 @@ import pandas as pd
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-from dataset_tools import preprocess_batch_custom_vgg, preprocess_batch_feed_forward, preprocess_batch_vgg16
+from dataset_tools import preprocess_batch_custom_vgg, preprocess_batch_feed_forward, preprocess_batch_vgg16, \
+    preprocess_batch_hybrid
 import json
 from tqdm import tqdm
-from classifier import FeedForwardNN, vgg16, Custom_vgg
+from classifier import FeedForwardNN, vgg16, Custom_vgg, HybridNetwork
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 from utils import *
@@ -35,7 +36,7 @@ softmax = nn.Softmax(dim=1).to(DEVICE)
 # =============================================================================
 # Train
 # =============================================================================
-def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preprocess_batch, weight):
+def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preprocess_batch, weight, use_descriptors):
     optimizer = optim.Adam(model.parameters(), lr=config["LR"])
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer,
                                                      mode='min',
@@ -60,21 +61,29 @@ def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preproce
     test_accs_facs = []
     for epoch in tqdm(range(epochs), desc="Epochs"):
         for pixelstring_batch, emotions_batch in dataloader:
-            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
+            if use_descriptors:
+                batch, descriptors_batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
+            else:
+                batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, device)
 
             loss_function = make_loss(groundtruth, weight)
 
             model.zero_grad()
-            out = model(batch.to(DEVICE))
+
+            if use_descriptors:
+                out = model(batch.to(DEVICE), descriptors_batch.to(DEVICE))
+            else:
+                out = model(batch.to(DEVICE))
+
             groundtruth = groundtruth.to(DEVICE)
             loss = loss_function(out, groundtruth)
             loss.backward()
             optimizer.step()
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device,
-                                                    compute_cm=False)
+                                                    compute_cm=False, use_descriptors=use_descriptors)
         scheduler.step(loss_train)
         proba, loss_test, acc, cm1, cm2, acc_factorised = evaluate(model, quick_eval_dataframe, preprocess_batch, weight,
-                                                                   device, compute_cm=True)
+                                                                   device, compute_cm=True, use_descriptors=use_descriptors)
         if acc > best_acc:
             torch.save(model.state_dict(), "current_best_model")
         model.train()
@@ -120,7 +129,7 @@ def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preproce
     return model.eval()
 
 
-def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=False):
+def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=False, use_descriptors=False):
     with torch.no_grad():
         model.eval()
         dataloader = make_dataloader(dataframe, shuffle=False, drop_last=False, loss_mode=config["loss_mode"])
@@ -134,10 +143,18 @@ def evaluate(model, dataframe, preprocess_batch, weight, DEVICE, compute_cm=Fals
         y_true = torch.tensor([]).to(DEVICE)
 
         for pixelstring_batch, emotions_batch in dataloader:
-            batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
+            if use_descriptors:
+                batch, descriptors_batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
+            else:
+                batch, groundtruth = preprocess_batch(pixelstring_batch, emotions_batch, DEVICE)
+
             loss_function = make_loss(groundtruth, weight)
 
-            out = model(batch.to(DEVICE))
+            if use_descriptors:
+                out = model(batch.to(DEVICE), descriptors_batch.to(DEVICE))
+            else:
+                out = model(batch.to(DEVICE))
+
             groundtruth = groundtruth.to(DEVICE)
             loss += loss_function(out, groundtruth)
             compteur += torch.tensor(1.0).to(DEVICE)
@@ -228,7 +245,7 @@ def make_dataloader(dataframe, shuffle=False, drop_last=False, loss_mode="CE"):
     return torch.utils.data.DataLoader(to_dataloader, config["BATCH"], shuffle=shuffle, drop_last=drop_last)
 
 
-def main(model, preprocess_batch):
+def main(model, preprocess_batch, use_descriptors=False):
     print("creation du dataset")
     all_data = pd.read_csv(config["path"], header=0)
     n_quick_eval = int(config["quick_eval_rate"] * len(all_data[all_data["attribution"] == "val"]))
@@ -243,8 +260,8 @@ def main(model, preprocess_batch):
     # train
     print("Starting model training with:")
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
-    model = train(model, train_dataframe, quick_eval_dataframe, config["epochs"], DEVICE, preprocess_batch, weight)
-    proba, loss_eval, acc, cm = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE, compute_cm=True)
+    model = train(model, train_dataframe, quick_eval_dataframe, config["epochs"], DEVICE, preprocess_batch, weight, use_descriptors)
+    proba, loss_eval, acc, cm = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE, compute_cm=True, use_descriptors=use_descriptors)
 
     return model, acc, loss_eval, proba, cm
 
@@ -270,3 +287,12 @@ def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
                                                                                                      with_data_aug,
                                                                                                      config[
                                                                                                          "loss_mode"]))
+
+
+def main_hybrid(start_from_best_model=True, with_data_aug=True):
+    model = HybridNetwork(1, len(config["catslist"]), DEVICE)
+    if start_from_best_model:
+        print("Loading model from current best model")
+        model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
+    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_hybrid(
+        pixelstring_batch, emotions_batch, DEVICE, with_data_aug, config["loss_mode"]), use_descriptors=True)

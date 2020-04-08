@@ -1,11 +1,16 @@
 import PIL as pl
 import numpy as np
 import torch
+import json
 import torchvision.transforms as transforms
+
+from sift_descriptors import SIFTDetector, DenseDetector
 
 size = 48
 emotions = 7
 
+with open('config.json') as json_file:
+    config = json.load(json_file)
 
 # =============================================================================
 # Conversion pixel tensor
@@ -139,38 +144,40 @@ def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_
     return batch, groundtruth
 
 
-def preprocess_batch_hybrid(pixelstring_batch, descriptors_batch, emotions_batch, DEVICE, with_data_aug=True,
+def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
                             loss_mode="BCE"):
-    # Transformations applied to images
-    transformations_pixels = [
+
+    transforms_flip = []
+    if with_data_aug:
+        transforms_flip = [transforms.RandomHorizontalFlip(p=0.5)]
+
+    transforms_normalize = [
         # pre-processing
         transforms.Grayscale(num_output_channels=1),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0], std=[0.5])
     ]
-    if with_data_aug:
-        transformations_pixels = [
-                                     # data augmentation
-                                     transforms.RandomHorizontalFlip(p=0.5)
-                                 ] + transformations_pixels
 
-    pre_process_pixels = transforms.Compose(transformations_pixels)
+    pre_process_flip = transforms.Compose(transforms_flip)
+    pre_process_normalize = transforms.Compose(transforms_normalize)
 
-    pixels_batch = torch.stack(
-        tuple([
-            pre_process_pixels(string_to_pilimage(string)) for string in pixelstring_batch
-        ])
-    )
+    flipped_imgs = [pre_process_flip(string_to_pilimage(string)) for string in pixelstring_batch]
 
-    sift_batch = torch.stack(
-        tuple([
-            torch.FloatTensor(descriptorstring_to_numpy(string)) for string in descriptors_batch
-        ])
-    )
+    detector = SIFTDetector()
+    if config["sift_type"] == "dense":
+        detector = DenseDetector()
+
+    descriptors_batch = torch.stack(tuple([
+        torch.FloatTensor(detector.compute_descriptors(im)[1].flatten()) for im in flipped_imgs
+    ]))
+
+    pixels_batch = torch.stack(tuple([
+        pre_process_normalize(im) for im in flipped_imgs
+    ]))
 
     groundtruth = emotion_batch_totensor(emotions_batch, loss_mode)
 
-    return pixels_batch, sift_batch, groundtruth
+    return pixels_batch, descriptors_batch, groundtruth
 
 
 def preprocess_batch_vgg16(pixelstring_batch, emotions_batch, DEVICE):
