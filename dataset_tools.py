@@ -199,6 +199,7 @@ def preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, wi
     detector = SIFTDetector()
 
     kp_descriptors = [detector.compute_descriptors(np.array(im)) for im in flipped_imgs]
+    kp_descriptors = [x for x in kp_descriptors if x[1] is not None]
 
     descriptor_tensors = []
     for img_key_points, img_descriptors in kp_descriptors:
