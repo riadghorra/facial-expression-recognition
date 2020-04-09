@@ -4,10 +4,10 @@ import torch.optim as optim
 import torch.nn as nn
 import numpy as np
 from dataset_tools import preprocess_batch_custom_vgg, preprocess_batch_feed_forward, preprocess_batch_vgg16, \
-    preprocess_batch_hybrid
+    preprocess_batch_hybrid, preprocess_batch_hybrid_custom
 import json
 from tqdm import tqdm
-from classifier import FeedForwardNN, vgg16, Custom_vgg, HybridNetwork
+from classifier import FeedForwardNN, vgg16, Custom_vgg, HybridNetwork, CustomHybridNetwork
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 from utils import *
@@ -295,4 +295,13 @@ def main_hybrid(start_from_best_model=True, with_data_aug=True):
         print("Loading model from current best model")
         model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
     return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_hybrid(
+        pixelstring_batch, emotions_batch, DEVICE, with_data_aug, config["loss_mode"]), use_descriptors=True)
+
+
+def main_hybrid_custom(start_from_best_model=True, with_data_aug=True):
+    model = CustomHybridNetwork(DEVICE)
+    if start_from_best_model:
+        print("Loading model from current best model")
+        model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
+    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_hybrid_custom(
         pixelstring_batch, emotions_batch, DEVICE, with_data_aug, config["loss_mode"]), use_descriptors=True)

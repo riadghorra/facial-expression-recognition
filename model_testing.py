@@ -2,12 +2,13 @@ import PIL as pl
 import torch
 import torchvision.transforms as transforms
 from time import time
-from classifier import Custom_vgg
+from classifier import Custom_vgg, HybridNetwork, CustomHybridNetwork
 import os
 import pandas as pd
 import numpy as np
 
-from dataset_tools import preprocess_batch_custom_vgg, string_to_pilimage
+from dataset_tools import preprocess_batch_custom_vgg, string_to_pilimage, preprocess_batch_hybrid, \
+    preprocess_batch_hybrid_custom
 from pipeline import crop_faces, crop_cv_img
 from train import evaluate, DEVICE, config
 from utils import plot_confusion_matrix
@@ -30,30 +31,45 @@ def resize_input_image(pil_img):
     return pil_img
 
 
-def load_model():
-    model = Custom_vgg(1, len(config["catslist"]), DEVICE)
+def load_model(model_type="CustomVGG"):
+    if model_type == "CustomVGG":
+        model = Custom_vgg(1, len(config["catslist"]), DEVICE)
+    elif model_type == "Hybrid":
+        model = HybridNetwork(1, len(config["catslist"]), DEVICE)
+    elif model_type == "CustomHybrid":
+        model = CustomHybridNetwork(DEVICE)
+    else:
+        raise Exception("Invalid model type")
+
     model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
     model.eval()
     return model
 
 
-def test_on_fer_test_set(fer_path):
+def test_on_fer_test_set(fer_path, model_type="CustomVGG"):
     start_time = time()
     fer = pd.read_csv(fer_path)
     if "attribution" not in fer:
         raise Exception("Fer not split between train/val/test. Please run split_fer script.")
     fer_test = fer[fer["attribution"] == "test"].reset_index()
 
-    model = load_model()
+    model = load_model(model_type=model_type)
 
     print("Loaded fer test set and model in {}s".format(round(time() - start_time, 2)))
     start_time = time()
 
     def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
-        return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        if model_type == "CustomVGG":
+            return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "Hybrid":
+            return preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "CustomHybrid":
+            return preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
 
+    use_descriptors = (model_type == "Hybrid" or model_type == "CustomHybrid")
     dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)  # we don't care about the test loss value here.
-    proba, _, acc, cm1, cm2, acc_fact = evaluate(model, fer_test, preprocess_batch, dummy_weights, DEVICE, compute_cm=True)
+    proba, _, acc, cm1, cm2, acc_fact = evaluate(model, fer_test, preprocess_batch, dummy_weights, DEVICE,
+                                                 compute_cm=True, use_descriptors=use_descriptors)
 
     print("FINAL ACCURACY: {}".format(acc))
     print("Average predicted proba for right class: {}".format(proba))
@@ -102,7 +118,7 @@ def test_on_folder():
     results_df.to_csv("predictions.csv", index=False)
 
 
-def test_on_annotated_csv(annotations_csv_path):
+def test_on_annotated_csv(annotations_csv_path, model_type="CustomVGG"):
     start_time = time()
     # add column "pixels" to annotated csv (same format as FER csv)
     print("Loading annotations...")
@@ -137,15 +153,23 @@ def test_on_annotated_csv(annotations_csv_path):
     start_time = time()
     # load model and evaluate it
     print("Loading model...")
-    model = load_model()
+    model = load_model(model_type=model_type)
 
     print("Evaluating model...")
-    
-    def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
-        return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
 
-    dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)  # we don't care about the test loss value here.
-    proba, _, acc, cm1, cm2, acc_fact = evaluate(model, df, preprocess_batch, dummy_weights, DEVICE, compute_cm=True)
+    def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
+        if model_type == "CustomVGG":
+            return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "Hybrid":
+            return preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "CustomHybrid":
+            return preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+
+    use_descriptors = (model_type == "Hybrid" or model_type == "CustomHybrid")
+    # we don't care about the test loss value here
+    dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)
+    proba, _, acc, cm1, cm2, acc_fact = evaluate(model, df, preprocess_batch, dummy_weights, DEVICE,
+                                                 compute_cm=True, use_descriptors=use_descriptors)
 
     print("FINAL ACCURACY: {}".format(acc))
     print("Average predicted proba for right class: {}".format(proba))
@@ -155,3 +179,6 @@ def test_on_annotated_csv(annotations_csv_path):
     plot_confusion_matrix(cm1, config["catslist"])
     plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
 
+
+# test_on_fer_test_set("./fer_datasets/ferplus_cropped.csv", model_type="Hybrid")
+test_on_annotated_csv("./annotations.csv", model_type="Hybrid")
