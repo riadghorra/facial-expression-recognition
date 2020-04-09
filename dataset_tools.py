@@ -180,6 +180,8 @@ def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data
 
 def preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
                             loss_mode="BCE"):
+    groundtruth = emotion_batch_totensor(emotions_batch, loss_mode)
+
     transforms_flip = []
     if with_data_aug:
         transforms_flip = [transforms.RandomHorizontalFlip(p=0.5)]
@@ -200,6 +202,9 @@ def preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, wi
 
     kp_descriptors = [detector.compute_descriptors(np.array(im)) for im in flipped_imgs]
     flipped_imgs = [img for i, img in enumerate(flipped_imgs) if kp_descriptors[i][1] is not None]
+    groundtruth = torch.stack(tuple([
+        groundtruth[i, :] for i in range(len(kp_descriptors)) if kp_descriptors[i][1] is not None
+    ]))
     kp_descriptors = [x for x in kp_descriptors if x[1] is not None]
 
     descriptor_tensors = []
@@ -218,8 +223,6 @@ def preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, wi
     pixels_batch = torch.stack(tuple([
         pre_process_normalize(im) for im in flipped_imgs
     ]))
-
-    groundtruth = emotion_batch_totensor(emotions_batch, loss_mode)
 
     return pixels_batch, descriptors_batch, groundtruth
 
