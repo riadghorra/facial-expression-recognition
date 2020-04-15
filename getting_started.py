@@ -1,13 +1,37 @@
-from dataset_tools import string_to_pilimage
-from train import config
 import numpy as np
 import pandas as pd
+import PIL as pl
+import json
+
+with open('config.json') as json_file:
+    config = json.load(json_file)
 
 """
 Load Images from FER.
 - config["path"] is the path to the dataset
 - config["data_column"] is "pixels" (if the dataset is not cropped) or "face" (if dataset is cropped).
 """
+
+
+def pixelstring_to_numpy(string, flatten=False, integer_pixels=False):
+    pixels = string.split()
+    if flatten:
+        out = np.array([int(i) for i in pixels])
+        return out
+    out = np.zeros((48, 48))
+    for i in range(48):
+        out[i] = np.array([int(k) for k in pixels[48 * i:48 * (i + 1)]])
+
+    if integer_pixels:
+        return out
+
+    return out / 255.0
+
+
+def string_to_pilimage(pixelstring):
+    imarray = pixelstring_to_numpy(pixelstring, integer_pixels=True)
+    out = pl.Image.fromarray(imarray).convert("L")
+    return out
 
 
 def load_cv_images_from_fer(output_type, nrows=None):
@@ -40,5 +64,3 @@ def show_first_images():
     for img in imgs:
         img.show()
 
-
-show_first_images()
