@@ -293,7 +293,7 @@ def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
                                                                                                          "loss_mode"]))
 
 
-def main_hybrid(start_from_best_model=True, with_data_aug=True):
+def main_dense_hybrid(start_from_best_model=True, with_data_aug=True):
     model = DenseSIFTHybrid(1, len(config["catslist"]), DEVICE)
     if start_from_best_model:
         print("Loading model from current best model")
@@ -302,7 +302,7 @@ def main_hybrid(start_from_best_model=True, with_data_aug=True):
         pixelstring_batch, emotions_batch, DEVICE, with_data_aug, config["loss_mode"]), use_descriptors=True)
 
 
-def main_hybrid_custom(start_from_best_model=True, with_data_aug=True):
+def main_hybrid(start_from_best_model=True, with_data_aug=True):
     model = SIFTHybrid(DEVICE)
     if start_from_best_model:
         print("Loading model from current best model")
