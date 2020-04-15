@@ -2,7 +2,7 @@
 
 This project was started by a final-year project at CentraleSupélec conducted in collaboration with Illuin Technology and aimed at making automatic and fast classification of facial emotions. To this end a Light CNN model has been implemented from scratch.
 
-This project was then continued in order to make a comparative study of 3 different architectures of models capable of performing an emotions classification task:  the light Convolutional Neural Network, 3 Random Forest algorithm using SIFT descriptors as features and 2 versions of a hybrid SIFT-CNN architecture.
+This project was then continued in order to make a comparative study of 3 different architectures of models capable of performing an emotions classification task:  the light Convolutional Neural Network, a Random Forest algorithm using SIFT descriptors as features and 2 versions of a hybrid SIFT-CNN architecture.
  
 ## Team
 This project was firstly developed in collaboration with Illuin
