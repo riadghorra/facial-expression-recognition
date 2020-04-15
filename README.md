@@ -8,7 +8,7 @@ This project was then continued in order to make a comparative study of 3 differ
 This project was firstly developed in collaboration with Illuin
  Technology in the form of a final-year project at
   CentraleSupélec.
-The people who contributed to this project are ::
+The people who contributed to this project are :
 * Corentin Carteau
 * Riad Ghorra
 * Arthur Lindoulsi
