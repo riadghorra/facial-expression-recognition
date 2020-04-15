@@ -144,8 +144,8 @@ def preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, with_
     return batch, groundtruth
 
 
-def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
-                            loss_mode="BCE"):
+def preprocess_batch_dense_sift_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
+                                       loss_mode="BCE"):
     transforms_flip = []
     if with_data_aug:
         transforms_flip = [transforms.RandomHorizontalFlip(p=0.5)]
@@ -178,8 +178,8 @@ def preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data
     return pixels_batch, descriptors_batch, groundtruth
 
 
-def preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
-                            loss_mode="BCE"):
+def preprocess_batch_sift_hybrid(pixelstring_batch, emotions_batch, DEVICE, with_data_aug=True,
+                                 loss_mode="BCE"):
     groundtruth = emotion_batch_totensor(emotions_batch, loss_mode)
 
     transforms_flip = []

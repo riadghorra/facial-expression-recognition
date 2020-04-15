@@ -95,9 +95,12 @@ class Custom_vgg(nn.Module):
         return [round(float(100 * proba), 2) for proba in y]
 
 
-class HybridNetwork(nn.Module):
+class DenseSIFTHybrid(nn.Module):
+    """
+    Hybrid network using both CNN features and descriptors extracted using the Dense SIFT algorithm
+    """
     def __init__(self, in_channel, out_dim, device=torch.device('cpu')):
-        super(HybridNetwork, self).__init__()
+        super(DenseSIFTHybrid, self).__init__()
         self.device = device
 
         # CNN Block
@@ -156,9 +159,12 @@ class HybridNetwork(nn.Module):
         return concat
 
 
-class CustomHybridNetwork(nn.Module):
+class SIFTHybrid(nn.Module):
+    """
+    Hybrid network using both CNN features and descriptors extracted using the SIFT algorithm
+    """
     def __init__(self, device=torch.device('cpu')):
-        super(CustomHybridNetwork, self).__init__()
+        super(SIFTHybrid, self).__init__()
         self.device = device
 
         # Image block input: 1*48*48

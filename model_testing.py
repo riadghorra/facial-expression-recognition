@@ -2,13 +2,13 @@ import PIL as pl
 import torch
 import torchvision.transforms as transforms
 from time import time
-from classifier import Custom_vgg, HybridNetwork, CustomHybridNetwork
+from classifier import Custom_vgg, DenseSIFTHybrid, SIFTHybrid
 import os
 import pandas as pd
 import numpy as np
 
-from dataset_tools import preprocess_batch_custom_vgg, string_to_pilimage, preprocess_batch_hybrid, \
-    preprocess_batch_hybrid_custom
+from dataset_tools import preprocess_batch_custom_vgg, string_to_pilimage, preprocess_batch_dense_sift_hybrid, \
+    preprocess_batch_sift_hybrid
 from pipeline import crop_faces, crop_cv_img
 from train import evaluate, DEVICE, config
 from utils import plot_confusion_matrix
@@ -34,10 +34,10 @@ def resize_input_image(pil_img):
 def load_model(model_type="CustomVGG"):
     if model_type == "CustomVGG":
         model = Custom_vgg(1, len(config["catslist"]), DEVICE)
-    elif model_type == "Hybrid":
-        model = HybridNetwork(1, len(config["catslist"]), DEVICE)
-    elif model_type == "CustomHybrid":
-        model = CustomHybridNetwork(DEVICE)
+    elif model_type == "DenseSIFTHybrid":
+        model = DenseSIFTHybrid(1, len(config["catslist"]), DEVICE)
+    elif model_type == "SIFTHybrid":
+        model = SIFTHybrid(DEVICE)
     else:
         raise Exception("Invalid model type")
 
@@ -61,12 +61,12 @@ def test_on_fer_test_set(fer_path, model_type="CustomVGG"):
     def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
         if model_type == "CustomVGG":
             return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
-        elif model_type == "Hybrid":
-            return preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
-        elif model_type == "CustomHybrid":
-            return preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "DenseSIFTHybrid":
+            return preprocess_batch_dense_sift_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "SIFTHybrid":
+            return preprocess_batch_sift_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
 
-    use_descriptors = (model_type == "Hybrid" or model_type == "CustomHybrid")
+    use_descriptors = (model_type == "DenseSIFTHybrid" or model_type == "SIFTHybrid")
     dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)  # we don't care about the test loss value here.
     proba, _, acc, cm1, cm2, acc_fact = evaluate(model, fer_test, preprocess_batch, dummy_weights, DEVICE,
                                                  compute_cm=True, use_descriptors=use_descriptors)
@@ -160,12 +160,12 @@ def test_on_annotated_csv(annotations_csv_path, model_type="CustomVGG"):
     def preprocess_batch(pixelstring_batch, emotions_batch, DEVICE):
         if model_type == "CustomVGG":
             return preprocess_batch_custom_vgg(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
-        elif model_type == "Hybrid":
-            return preprocess_batch_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
-        elif model_type == "CustomHybrid":
-            return preprocess_batch_hybrid_custom(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "DenseSIFTHybrid":
+            return preprocess_batch_dense_sift_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
+        elif model_type == "SIFTHybrid":
+            return preprocess_batch_sift_hybrid(pixelstring_batch, emotions_batch, DEVICE, False, config["loss_mode"])
 
-    use_descriptors = (model_type == "Hybrid" or model_type == "CustomHybrid")
+    use_descriptors = (model_type == "DenseSIFTHybrid" or model_type == "SIFTHybrid")
     # we don't care about the test loss value here
     dummy_weights = torch.FloatTensor([1]*len(config["catslist"])).to(DEVICE)
     proba, _, acc, cm1, cm2, acc_fact = evaluate(model, df, preprocess_batch, dummy_weights, DEVICE,
@@ -180,5 +180,5 @@ def test_on_annotated_csv(annotations_csv_path, model_type="CustomVGG"):
     plot_confusion_matrix(cm2, ["bad", "good", "surprise", "neutral"])
 
 
-# test_on_fer_test_set("./fer_datasets/ferplus_cropped.csv", model_type="Hybrid")
-test_on_annotated_csv("./annotations.csv", model_type="Hybrid")
+# test_on_fer_test_set("./fer_datasets/ferplus_cropped.csv", model_type="DenseSIFTHybrid")
+test_on_annotated_csv("./annotations.csv", model_type="DenseSIFTHybrid")

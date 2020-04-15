@@ -4,10 +4,10 @@ import torch.optim as optim
 import torch.nn as nn
 import numpy as np
 from dataset_tools import preprocess_batch_custom_vgg, preprocess_batch_feed_forward, preprocess_batch_vgg16, \
-    preprocess_batch_hybrid, preprocess_batch_hybrid_custom
+    preprocess_batch_dense_sift_hybrid, preprocess_batch_sift_hybrid
 import json
 from tqdm import tqdm
-from classifier import FeedForwardNN, vgg16, Custom_vgg, HybridNetwork, CustomHybridNetwork
+from classifier import FeedForwardNN, vgg16, Custom_vgg, DenseSIFTHybrid, SIFTHybrid
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 from utils import *
@@ -82,8 +82,10 @@ def train(model, train_dataframe, quick_eval_dataframe, epochs, device, preproce
         probatrain, loss_train, acctrain = evaluate(model, train_dataframe, preprocess_batch, weight, device,
                                                     compute_cm=False, use_descriptors=use_descriptors)
         scheduler.step(loss_train)
-        proba, loss_test, acc, cm1, cm2, acc_factorised = evaluate(model, quick_eval_dataframe, preprocess_batch, weight,
-                                                                   device, compute_cm=True, use_descriptors=use_descriptors)
+        proba, loss_test, acc, cm1, cm2, acc_factorised = evaluate(model, quick_eval_dataframe, preprocess_batch,
+                                                                   weight,
+                                                                   device, compute_cm=True,
+                                                                   use_descriptors=use_descriptors)
         if acc > best_acc:
             torch.save(model.state_dict(), "current_best_model")
         model.train()
@@ -260,8 +262,10 @@ def main(model, preprocess_batch, use_descriptors=False):
     # train
     print("Starting model training with:")
     print("learning rate: {}, batch size: {}".format(config["LR"], config["BATCH"]))
-    model = train(model, train_dataframe, quick_eval_dataframe, config["epochs"], DEVICE, preprocess_batch, weight, use_descriptors)
-    proba, loss_eval, acc, cm = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE, compute_cm=True, use_descriptors=use_descriptors)
+    model = train(model, train_dataframe, quick_eval_dataframe, config["epochs"], DEVICE, preprocess_batch, weight,
+                  use_descriptors)
+    proba, loss_eval, acc, cm = evaluate(model, eval_dataframe, preprocess_batch, weight, DEVICE, compute_cm=True,
+                                         use_descriptors=use_descriptors)
 
     return model, acc, loss_eval, proba, cm
 
@@ -290,18 +294,18 @@ def main_custom_vgg(start_from_best_model=True, with_data_aug=True):
 
 
 def main_hybrid(start_from_best_model=True, with_data_aug=True):
-    model = HybridNetwork(1, len(config["catslist"]), DEVICE)
+    model = DenseSIFTHybrid(1, len(config["catslist"]), DEVICE)
     if start_from_best_model:
         print("Loading model from current best model")
         model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
-    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_hybrid(
+    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_dense_sift_hybrid(
         pixelstring_batch, emotions_batch, DEVICE, with_data_aug, config["loss_mode"]), use_descriptors=True)
 
 
 def main_hybrid_custom(start_from_best_model=True, with_data_aug=True):
-    model = CustomHybridNetwork(DEVICE)
+    model = SIFTHybrid(DEVICE)
     if start_from_best_model:
         print("Loading model from current best model")
         model.load_state_dict(torch.load(config["current_best_model"], map_location=DEVICE))
-    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_hybrid_custom(
+    return main(model, lambda pixelstring_batch, emotions_batch, DEVICE: preprocess_batch_sift_hybrid(
         pixelstring_batch, emotions_batch, DEVICE, with_data_aug, config["loss_mode"]), use_descriptors=True)
